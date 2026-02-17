@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Heart, ArrowLeftRight, MessageCircle, Star, Bell, Home, Check } from "lucide-react"
+import { ChevronLeft, Heart, ArrowLeftRight, MessageCircle, Star, Bell, Home, Check, ShieldCheck, Users } from "lucide-react"
 import { motion } from "framer-motion"
 import Image from "next/image"
 
@@ -13,7 +13,7 @@ interface NotificationsScreenProps {
 
 interface Notification {
   id: string
-  type: "match" | "like" | "message" | "superlike" | "system"
+  type: "match" | "like" | "message" | "superlike" | "system" | "verification" | "representative"
   title: string
   message: string
   timestamp: string
@@ -62,10 +62,26 @@ const notifications: Notification[] = [
   },
   {
     id: "5",
+    type: "verification",
+    title: "Verification approved",
+    message: "Your property ownership has been verified. You can now communicate with matches.",
+    timestamp: "2 days ago",
+    read: true,
+  },
+  {
+    id: "6",
+    type: "representative",
+    title: "Representative assigned",
+    message: "A Beagl representative has been assigned to your swap with Sarah Mitchell.",
+    timestamp: "3 days ago",
+    read: true,
+  },
+  {
+    id: "7",
     type: "system",
     title: "Profile boost active",
     message: "Your listing is being shown to more users",
-    timestamp: "2 days ago",
+    timestamp: "4 days ago",
     read: true,
   },
 ]
@@ -76,6 +92,8 @@ const getNotificationIcon = (type: Notification["type"]) => {
     case "like": return Heart
     case "message": return MessageCircle
     case "superlike": return Star
+    case "verification": return ShieldCheck
+    case "representative": return Users
     case "system": return Bell
   }
 }
@@ -86,6 +104,8 @@ const getNotificationColor = (type: Notification["type"]) => {
     case "like": return "bg-destructive/80 text-white"
     case "message": return "bg-accent text-accent-foreground"
     case "superlike": return "bg-chart-4 text-foreground"
+    case "verification": return "bg-emerald-500 text-white"
+    case "representative": return "bg-primary/80 text-primary-foreground"
     case "system": return "bg-secondary text-foreground"
   }
 }
