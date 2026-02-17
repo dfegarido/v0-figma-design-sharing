@@ -4,8 +4,10 @@ import React from "react"
 
 import { useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Bed, Bath, Car, Ruler, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Bed, Bath, Car, Ruler, MapPin, LandPlot, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+
+export type PropertyType = "House" | "Apartment" | "Townhouse" | "Unit" | "Land"
 
 export interface Property {
   id: string;
@@ -17,6 +19,12 @@ export interface Property {
   bathrooms: number;
   parking: number;
   sqm: number;
+  landSize?: number;
+  propertyType?: PropertyType;
+  tags?: string[];
+  specialConditions?: string;
+  verified?: boolean;
+  matchScore?: number;
   ownerName: string;
   ownerImage?: string;
   description?: string;
@@ -26,9 +34,10 @@ export interface Property {
 interface PropertyCardProps {
   property: Property;
   showOwner?: boolean;
+  onTap?: () => void;
 }
 
-export function PropertyCard({ property, showOwner = true }: PropertyCardProps) {
+export function PropertyCard({ property, showOwner = true, onTap }: PropertyCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const nextImage = (e: React.MouseEvent) => {
@@ -98,6 +107,13 @@ export function PropertyCard({ property, showOwner = true }: PropertyCardProps) 
           </>
         )}
 
+        {/* Match score badge */}
+        {property.matchScore != null && property.matchScore > 0 && (
+          <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground backdrop-blur-sm px-2.5 py-1 text-sm font-semibold">
+            {property.matchScore}% match
+          </Badge>
+        )}
+
         {/* Price badge */}
         <Badge className="absolute top-4 right-4 bg-card/90 text-foreground backdrop-blur-sm px-3 py-1.5 text-lg font-semibold">
           {formatPrice(property.price)}
@@ -135,7 +151,29 @@ export function PropertyCard({ property, showOwner = true }: PropertyCardProps) 
             <Ruler className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">{property.sqm}m²</span>
           </div>
+          {property.landSize && (
+            <div className="flex items-center gap-1.5">
+              <LandPlot className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{property.landSize}m²</span>
+            </div>
+          )}
         </div>
+
+        {/* Tags */}
+        {property.tags && property.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {property.tags.slice(0, 4).map((tag) => (
+              <Badge key={tag} variant="outline" className="text-xs rounded-full px-2.5 py-0.5">
+                {tag}
+              </Badge>
+            ))}
+            {property.tags.length > 4 && (
+              <Badge variant="outline" className="text-xs rounded-full px-2.5 py-0.5 text-muted-foreground">
+                +{property.tags.length - 4}
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* Owner */}
         {showOwner && (
@@ -155,9 +193,14 @@ export function PropertyCard({ property, showOwner = true }: PropertyCardProps) 
                 </div>
               )}
             </div>
-            <div>
-              <p className="text-sm font-medium">{property.ownerName}</p>
-              <p className="text-xs text-muted-foreground">Property Owner</p>
+            <div className="flex items-center gap-2">
+              <div>
+                <p className="text-sm font-medium">{property.ownerName}</p>
+                <p className="text-xs text-muted-foreground">Property Owner</p>
+              </div>
+              {property.verified && (
+                <ShieldCheck className="h-4 w-4 text-primary flex-shrink-0" />
+              )}
             </div>
           </div>
         )}

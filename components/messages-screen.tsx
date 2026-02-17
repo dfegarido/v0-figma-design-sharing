@@ -4,11 +4,15 @@ import { useState } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Search, ArrowLeftRight, CheckCheck } from "lucide-react"
+import { Search, ArrowLeftRight, CheckCheck, Lock } from "lucide-react"
 import { motion } from "framer-motion"
+import type { VerificationStatus } from "./verification-screen"
 
 interface MessagesScreenProps {
   onOpenChat: (chatId: string) => void
+  verificationStatus?: VerificationStatus
+  chatUnlocked?: boolean
+  onNavigateUnlock?: () => void
 }
 
 interface Match {
@@ -67,7 +71,16 @@ const sampleMatches: Match[] = [
   },
 ]
 
-export function MessagesScreen({ onOpenChat }: MessagesScreenProps) {
+export function MessagesScreen({ onOpenChat, verificationStatus = "verified", chatUnlocked = true, onNavigateUnlock }: MessagesScreenProps) {
+  const canChat = verificationStatus === "verified" && chatUnlocked
+
+  const handleChatClick = (matchId: string) => {
+    if (canChat) {
+      onOpenChat(matchId)
+    } else {
+      onNavigateUnlock?.()
+    }
+  }
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
 
@@ -113,7 +126,7 @@ export function MessagesScreen({ onOpenChat }: MessagesScreenProps) {
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="flex flex-col items-center gap-2 flex-shrink-0"
-                onClick={() => onOpenChat(match.id)}
+                onClick={() => handleChatClick(match.id)}
               >
                 <div className="relative">
                   <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary">
@@ -148,8 +161,8 @@ export function MessagesScreen({ onOpenChat }: MessagesScreenProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-secondary transition-colors text-left"
-              onClick={() => onOpenChat(match.id)}
+              className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-secondary transition-colors text-left relative"
+              onClick={() => handleChatClick(match.id)}
             >
               {/* Avatar and house preview */}
               <div className="relative flex-shrink-0">
@@ -194,6 +207,14 @@ export function MessagesScreen({ onOpenChat }: MessagesScreenProps) {
                   )}
                 </div>
               </div>
+              {!canChat && (
+                <div className="absolute inset-0 rounded-2xl bg-card/60 backdrop-blur-[1px] flex items-center justify-center">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Lock className="h-4 w-4" />
+                    <span className="text-xs font-medium">Locked</span>
+                  </div>
+                </div>
+              )}
             </motion.button>
           ))}
         </div>

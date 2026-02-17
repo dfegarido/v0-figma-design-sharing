@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { SlidersHorizontal, X, MapPin } from "lucide-react"
+import { SlidersHorizontal, X, MapPin, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { motion, AnimatePresence } from "framer-motion"
+import type { PropertyType } from "./property-card"
+import type { BuyerCriteria } from "./buyer-criteria-screen"
 
 export interface FilterValues {
   suburb: string
@@ -15,22 +17,31 @@ export interface FilterValues {
   minBeds: number
   minBaths: number
   minParking: number
+  minLandSize: number
+  maxLandSize: number
+  propertyTypes: PropertyType[]
 }
 
 interface FilterSheetProps {
   filters: FilterValues
   onFiltersChange: (filters: FilterValues) => void
   onReset: () => void
+  buyerCriteria?: BuyerCriteria | null
 }
 
-const defaultFilters: FilterValues = {
+export const defaultFilters: FilterValues = {
   suburb: "",
   minPrice: 0,
   maxPrice: 5000000,
   minBeds: 0,
   minBaths: 0,
   minParking: 0,
+  minLandSize: 0,
+  maxLandSize: 2000,
+  propertyTypes: [],
 }
+
+const propertyTypeOptions: PropertyType[] = ["House", "Apartment", "Townhouse", "Unit", "Land"]
 
 const bedOptions = [
   { value: 0, label: "Any" },
@@ -56,7 +67,7 @@ const parkingOptions = [
   { value: 3, label: "3+" },
 ]
 
-export function FilterSheet({ filters, onFiltersChange, onReset }: FilterSheetProps) {
+export function FilterSheet({ filters, onFiltersChange, onReset, buyerCriteria }: FilterSheetProps) {
   const [open, setOpen] = useState(false)
   const [localFilters, setLocalFilters] = useState(filters)
 
@@ -84,13 +95,31 @@ export function FilterSheet({ filters, onFiltersChange, onReset }: FilterSheetPr
     return `$${(value / 1000).toFixed(0)}K`
   }
 
+  const loadFromCriteria = () => {
+    if (!buyerCriteria) return
+    setLocalFilters({
+      suburb: buyerCriteria.suburbs.join(", "),
+      minPrice: buyerCriteria.minPrice,
+      maxPrice: buyerCriteria.maxPrice,
+      minBeds: buyerCriteria.minBeds,
+      minBaths: buyerCriteria.minBaths,
+      minParking: buyerCriteria.minParking,
+      minLandSize: buyerCriteria.minLandSize,
+      maxLandSize: buyerCriteria.maxLandSize,
+      propertyTypes: buyerCriteria.propertyTypes,
+    })
+  }
+
   const hasActiveFilters =
     filters.suburb !== "" ||
     filters.minPrice > 0 ||
     filters.maxPrice < 5000000 ||
     filters.minBeds > 0 ||
     filters.minBaths > 0 ||
-    filters.minParking > 0
+    filters.minParking > 0 ||
+    filters.minLandSize > 0 ||
+    filters.maxLandSize < 2000 ||
+    filters.propertyTypes.length > 0
 
   return (
     <>
@@ -250,6 +279,61 @@ export function FilterSheet({ filters, onFiltersChange, onReset }: FilterSheetPr
                     ))}
                   </div>
                 </div>
+
+                {/* Property Type */}
+                <div className="space-y-3">
+                  <Label className="text-base font-medium">Property Type</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {propertyTypeOptions.map((type) => (
+                      <Button
+                        key={type}
+                        variant={localFilters.propertyTypes.includes(type) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          const types = localFilters.propertyTypes.includes(type)
+                            ? localFilters.propertyTypes.filter((t) => t !== type)
+                            : [...localFilters.propertyTypes, type]
+                          setLocalFilters({ ...localFilters, propertyTypes: types })
+                        }}
+                        className="rounded-full bg-transparent"
+                      >
+                        {type}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Land Size */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-medium">Land Size</Label>
+                    <span className="text-sm text-muted-foreground">
+                      {localFilters.minLandSize}m² - {localFilters.maxLandSize}m²
+                    </span>
+                  </div>
+                  <Slider
+                    value={[localFilters.minLandSize, localFilters.maxLandSize]}
+                    min={0}
+                    max={2000}
+                    step={50}
+                    onValueChange={([min, max]) =>
+                      setLocalFilters({ ...localFilters, minLandSize: min, maxLandSize: max })
+                    }
+                    className="py-2"
+                  />
+                </div>
+
+                {/* Load from Criteria */}
+                {buyerCriteria && (
+                  <Button
+                    variant="outline"
+                    onClick={loadFromCriteria}
+                    className="w-full rounded-xl h-10 bg-transparent"
+                  >
+                    <Bookmark className="h-4 w-4 mr-2" />
+                    Load My Saved Criteria
+                  </Button>
+                )}
               </div>
 
               {/* Footer */}

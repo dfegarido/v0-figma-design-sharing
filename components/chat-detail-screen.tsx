@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronLeft, Send, Phone, Video, MoreVertical, Image as ImageLucide, Home, CheckCheck } from "lucide-react"
-import { motion } from "framer-motion"
+import { ChevronLeft, Send, Phone, Video, MoreVertical, Image as ImageLucide, Home, CheckCheck, Users, X } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import NextImage from "next/image"
+import { Badge } from "@/components/ui/badge"
 
 interface ChatDetailScreenProps {
   chatId: string
@@ -105,6 +106,8 @@ export function ChatDetailScreen({ chatId, onBack }: ChatDetailScreenProps) {
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [showRepDialog, setShowRepDialog] = useState(false)
+  const [repRequested, setRepRequested] = useState(false)
   
   const chat = chatData[chatId] || chatData["1"]
 
@@ -127,6 +130,18 @@ export function ChatDetailScreen({ chatId, onBack }: ChatDetailScreenProps) {
     }
     setMessages([...messages, newMessage])
     setMessage("")
+  }
+
+  const handleRequestRep = () => {
+    setRepRequested(true)
+    setShowRepDialog(false)
+    const repMessage: Message = {
+      id: String(messages.length + 1),
+      text: "A Beagl representative has been requested for this swap. They will review the match and reach out to both parties shortly.",
+      sender: "them",
+      timestamp: "Just now",
+    }
+    setMessages((prev) => [...prev, repMessage])
   }
 
   const formatPrice = (price: number) => {
@@ -159,14 +174,20 @@ export function ChatDetailScreen({ chatId, onBack }: ChatDetailScreenProps) {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl"
+              onClick={() => !repRequested && setShowRepDialog(true)}
+              disabled={repRequested}
+            >
+              <Users className={`h-5 w-5 ${repRequested ? "text-primary" : "text-muted-foreground"}`} />
+            </Button>
             <Button variant="ghost" size="icon" className="rounded-xl">
               <Phone className="h-5 w-5 text-muted-foreground" />
             </Button>
             <Button variant="ghost" size="icon" className="rounded-xl">
               <Video className="h-5 w-5 text-muted-foreground" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-xl">
-              <MoreVertical className="h-5 w-5 text-muted-foreground" />
             </Button>
           </div>
         </div>
@@ -223,6 +244,16 @@ export function ChatDetailScreen({ chatId, onBack }: ChatDetailScreenProps) {
         </div>
       </div>
 
+      {/* Representative request banner */}
+      {repRequested && (
+        <div className="flex-shrink-0 px-4 py-2 bg-primary/5 border-t border-border">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary flex-shrink-0" />
+            <p className="text-xs text-muted-foreground flex-1">Representative requested - a Beagl agent will contact both parties.</p>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="flex-shrink-0 bg-card border-t border-border px-4 py-3">
         <div className="flex items-center gap-2">
@@ -246,6 +277,55 @@ export function ChatDetailScreen({ chatId, onBack }: ChatDetailScreenProps) {
           </Button>
         </div>
       </div>
+
+      {/* Request Representative Dialog */}
+      <AnimatePresence>
+        {showRepDialog && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50"
+              onClick={() => setShowRepDialog(false)}
+              style={{ maxWidth: "32rem", marginLeft: "auto", marginRight: "auto", zIndex: 9998 }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed left-4 right-4 top-1/2 -translate-y-1/2 bg-card rounded-2xl p-6 shadow-2xl"
+              style={{ maxWidth: "calc(32rem - 2rem)", marginLeft: "auto", marginRight: "auto", zIndex: 9999 }}
+            >
+              <button onClick={() => setShowRepDialog(false)} className="absolute top-4 right-4">
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <Users className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">Request a Representative</h3>
+                <p className="text-sm text-muted-foreground">
+                  A Beagl representative will review this match and reach out to both parties to assist with the swap process.
+                </p>
+              </div>
+              <div className="bg-secondary/50 rounded-xl p-3 mb-6">
+                <p className="text-xs text-muted-foreground text-center">
+                  Contact: zoev@beagl.au
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl bg-transparent" onClick={() => setShowRepDialog(false)}>
+                  Cancel
+                </Button>
+                <Button className="flex-1 rounded-xl" onClick={handleRequestRep}>
+                  Request
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { MessageCircle, X, ArrowLeftRight, PartyPopper } from "lucide-react"
+import { MessageCircle, X, ArrowLeftRight, PartyPopper, Lock } from "lucide-react"
 import Confetti from "react-confetti"
 import type { Property } from "./property-card"
 
@@ -12,11 +12,13 @@ interface MatchModalProps {
   isOpen: boolean
   onClose: () => void
   onMessage?: () => void
+  onUnlock?: () => void
+  canChat?: boolean
   yourProperty: Property | null
   matchedProperty: Property | null
 }
 
-export function MatchModal({ isOpen, onClose, onMessage, yourProperty, matchedProperty }: MatchModalProps) {
+export function MatchModal({ isOpen, onClose, onMessage, onUnlock, canChat = true, yourProperty, matchedProperty }: MatchModalProps) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [showConfetti, setShowConfetti] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -174,13 +176,24 @@ export function MatchModal({ isOpen, onClose, onMessage, yourProperty, matchedPr
               transition={{ delay: 0.7 }}
               className="flex flex-col gap-3"
             >
-              <Button
-                className="w-full h-14 text-lg font-semibold rounded-2xl bg-primary hover:bg-primary/90"
-                onClick={onMessage}
-              >
-                <MessageCircle className="w-5 h-5 mr-2" />
-                Send a Message
-              </Button>
+              {canChat ? (
+                <Button
+                  className="w-full h-14 text-lg font-semibold rounded-2xl bg-primary hover:bg-primary/90"
+                  onClick={onMessage}
+                >
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  Send a Message
+                </Button>
+              ) : (
+                <Button
+                  className="w-full h-14 text-lg font-semibold rounded-2xl"
+                  variant="outline"
+                  onClick={() => { onClose(); onUnlock?.(); }}
+                >
+                  <Lock className="w-5 h-5 mr-2" />
+                  Unlock to Chat
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 className="w-full text-muted-foreground"
