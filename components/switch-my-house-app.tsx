@@ -11,6 +11,7 @@ import { SearchScreen } from "./search-screen"
 import { AddPropertyScreen } from "./add-property-screen"
 import { PrivacyScreen } from "./privacy-screen"
 import { PremiumScreen } from "./premium-screen"
+import type { PremiumPlan } from "./premium-screen"
 import { HelpCenterScreen } from "./help-center-screen"
 import { NotificationsScreen } from "./notifications-screen"
 import { ChatDetailScreen } from "./chat-detail-screen"
@@ -43,6 +44,9 @@ export function SwitchMyHouseApp() {
   // Verification & unlock state
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified")
   const [chatUnlocked, setChatUnlocked] = useState(false)
+
+  // Premium plan state
+  const [premiumPlan, setPremiumPlan] = useState<PremiumPlan>(null)
 
   // Property detail state
   const [detailProperty, setDetailProperty] = useState<Property | null>(null)
@@ -103,7 +107,23 @@ export function SwitchMyHouseApp() {
       case "privacy":
         return <PrivacyScreen onBack={handleBack} />
       case "premium":
-        return <PremiumScreen onBack={handleBack} />
+        return (
+          <PremiumScreen
+            onBack={handleBack}
+            isPremium={canChat}
+            activePlan={premiumPlan}
+            onSubscribe={(plan) => {
+              setPremiumPlan(plan)
+              setVerificationStatus("verified")
+              setChatUnlocked(true)
+            }}
+            onCancel={() => {
+              setPremiumPlan(null)
+              setVerificationStatus("unverified")
+              setChatUnlocked(false)
+            }}
+          />
+        )
       case "help":
         return <HelpCenterScreen onBack={handleBack} />
       case "notifications":
@@ -176,8 +196,12 @@ export function SwitchMyHouseApp() {
             onResetAll={() => {
               setVerificationStatus("unverified")
               setChatUnlocked(false)
+              setPremiumPlan(null)
               setBuyerCriteria(defaultBuyerCriteria)
             }}
+            onSetVerification={(s) => setVerificationStatus(s as typeof verificationStatus)}
+            onSetChatUnlocked={(u) => setChatUnlocked(u)}
+            onSetPremiumPlan={(p) => setPremiumPlan(p)}
           />
         )
       case "onboarding":

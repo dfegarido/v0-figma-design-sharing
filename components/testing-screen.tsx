@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Play, RotateCcw, ShieldCheck, Lock, Target, Users, Home, MessageCircle, Bell, Sparkles } from "lucide-react"
+import { ChevronLeft, ChevronRight, Play, RotateCcw, ShieldCheck, Lock, Target, Users, Home, MessageCircle, Bell, Sparkles, ToggleLeft, ToggleRight, Crown } from "lucide-react"
 import { motion } from "framer-motion"
 
 interface TestingScreenProps {
@@ -12,6 +12,9 @@ interface TestingScreenProps {
   onResetVerification: () => void
   onResetChat: () => void
   onResetAll: () => void
+  onSetVerification: (status: string) => void
+  onSetChatUnlocked: (unlocked: boolean) => void
+  onSetPremiumPlan?: (plan: "monthly" | "yearly" | null) => void
 }
 
 interface TestItem {
@@ -89,7 +92,11 @@ export function TestingScreen({
   onResetVerification,
   onResetChat,
   onResetAll,
+  onSetVerification,
+  onSetChatUnlocked,
+  onSetPremiumPlan,
 }: TestingScreenProps) {
+  const isPremium = verificationStatus === "verified" && chatUnlocked
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
@@ -104,31 +111,106 @@ export function TestingScreen({
       </div>
 
       <div className="flex-1 overflow-auto px-4 py-4 space-y-6">
-        {/* Current state panel */}
+        {/* Premium toggle */}
+        <button
+          onClick={() => {
+            if (isPremium) {
+              onSetVerification("unverified")
+              onSetChatUnlocked(false)
+              onSetPremiumPlan?.(null)
+            } else {
+              onSetVerification("verified")
+              onSetChatUnlocked(true)
+              onSetPremiumPlan?.("monthly")
+            }
+          }}
+          className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
+            isPremium
+              ? "border-primary bg-primary/5"
+              : "border-border bg-secondary/50"
+          }`}
+        >
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+            isPremium ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+          }`}>
+            <Crown className="h-6 w-6" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-semibold text-foreground">
+              {isPremium ? "Premium Active" : "Enable Premium"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {isPremium ? "Verified + Chat Unlocked" : "Sets verified & unlocks chat in one tap"}
+            </p>
+          </div>
+          {isPremium ? (
+            <ToggleRight className="h-8 w-8 text-primary flex-shrink-0" />
+          ) : (
+            <ToggleLeft className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+          )}
+        </button>
+
+        {/* Individual state toggles */}
         <div className="bg-secondary/50 rounded-2xl p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">Current State</h3>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Verification</span>
-            <span className={`text-sm font-medium ${
-              verificationStatus === "verified" ? "text-emerald-500" :
-              verificationStatus === "pending" ? "text-amber-500" :
-              "text-muted-foreground"
-            }`}>
-              {verificationStatus}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Chat Unlocked</span>
-            <span className={`text-sm font-medium ${chatUnlocked ? "text-emerald-500" : "text-muted-foreground"}`}>
-              {chatUnlocked ? "Yes" : "No"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Can Chat</span>
-            <span className={`text-sm font-medium ${
-              verificationStatus === "verified" && chatUnlocked ? "text-emerald-500" : "text-muted-foreground"
-            }`}>
-              {verificationStatus === "verified" && chatUnlocked ? "Yes" : "No"}
+          <h3 className="text-sm font-semibold text-foreground">Individual Toggles</h3>
+
+          <button
+            onClick={() =>
+              onSetVerification(verificationStatus === "verified" ? "unverified" : "verified")
+            }
+            className="w-full flex items-center justify-between py-2"
+          >
+            <div className="flex items-center gap-3">
+              <ShieldCheck className={`h-4 w-4 ${verificationStatus === "verified" ? "text-emerald-500" : "text-muted-foreground"}`} />
+              <span className="text-sm text-foreground">Verification</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-medium ${
+                verificationStatus === "verified" ? "text-emerald-500" :
+                verificationStatus === "pending" ? "text-amber-500" :
+                "text-muted-foreground"
+              }`}>
+                {verificationStatus}
+              </span>
+              {verificationStatus === "verified" ? (
+                <ToggleRight className="h-6 w-6 text-emerald-500" />
+              ) : (
+                <ToggleLeft className="h-6 w-6 text-muted-foreground" />
+              )}
+            </div>
+          </button>
+
+          <div className="border-t border-border" />
+
+          <button
+            onClick={() => onSetChatUnlocked(!chatUnlocked)}
+            className="w-full flex items-center justify-between py-2"
+          >
+            <div className="flex items-center gap-3">
+              <Lock className={`h-4 w-4 ${chatUnlocked ? "text-emerald-500" : "text-muted-foreground"}`} />
+              <span className="text-sm text-foreground">Chat Unlocked</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-medium ${chatUnlocked ? "text-emerald-500" : "text-muted-foreground"}`}>
+                {chatUnlocked ? "Yes" : "No"}
+              </span>
+              {chatUnlocked ? (
+                <ToggleRight className="h-6 w-6 text-emerald-500" />
+              ) : (
+                <ToggleLeft className="h-6 w-6 text-muted-foreground" />
+              )}
+            </div>
+          </button>
+
+          <div className="border-t border-border" />
+
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-3">
+              <MessageCircle className={`h-4 w-4 ${isPremium ? "text-emerald-500" : "text-muted-foreground"}`} />
+              <span className="text-sm text-foreground">Can Chat</span>
+            </div>
+            <span className={`text-xs font-medium ${isPremium ? "text-emerald-500" : "text-muted-foreground"}`}>
+              {isPremium ? "Yes" : "No"}
             </span>
           </div>
         </div>
