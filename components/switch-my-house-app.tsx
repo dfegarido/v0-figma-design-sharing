@@ -22,10 +22,12 @@ import { VerificationScreen } from "./verification-screen"
 import type { VerificationStatus } from "./verification-screen"
 import { UnlockChatScreen } from "./unlock-chat-screen"
 import { PropertyDetailScreen } from "./property-detail-screen"
+import { TestingScreen } from "./testing-screen"
+import { OnboardingFlow } from "./onboarding-flow"
 import type { Property } from "./property-card"
 
 type Tab = "discover" | "search" | "add" | "messages" | "profile"
-type Screen = Tab | "privacy" | "premium" | "help" | "notifications" | "chat" | "matches" | "liked" | "criteria" | "verification" | "unlock" | "property-detail"
+type Screen = Tab | "privacy" | "premium" | "help" | "notifications" | "chat" | "matches" | "liked" | "criteria" | "verification" | "unlock" | "property-detail" | "testing" | "onboarding"
 
 export function SwitchMyHouseApp() {
   const [activeTab, setActiveTab] = useState<Tab>("discover")
@@ -156,6 +158,38 @@ export function SwitchMyHouseApp() {
             onBack={handleBack}
           />
         ) : null
+      case "testing":
+        return (
+          <TestingScreen
+            onBack={handleBack}
+            onNavigate={(screen) => {
+              if (screen === "test-chat") {
+                handleOpenChat("1")
+              } else {
+                handleNavigateToScreen(screen)
+              }
+            }}
+            verificationStatus={verificationStatus}
+            chatUnlocked={chatUnlocked}
+            onResetVerification={() => setVerificationStatus("unverified")}
+            onResetChat={() => setChatUnlocked(false)}
+            onResetAll={() => {
+              setVerificationStatus("unverified")
+              setChatUnlocked(false)
+              setBuyerCriteria(defaultBuyerCriteria)
+            }}
+          />
+        )
+      case "onboarding":
+        return (
+          <OnboardingFlow
+            onBack={handleBack}
+            onComplete={(criteria) => {
+              if (criteria) setBuyerCriteria(criteria)
+              handleTabChange("discover")
+            }}
+          />
+        )
     }
 
     switch (activeTab) {
@@ -195,7 +229,7 @@ export function SwitchMyHouseApp() {
     }
   }
 
-  const showNavigation = !["privacy", "premium", "help", "notifications", "chat", "matches", "liked", "criteria", "verification", "unlock", "property-detail"].includes(activeScreen)
+  const showNavigation = !["privacy", "premium", "help", "notifications", "chat", "matches", "liked", "criteria", "verification", "unlock", "property-detail", "testing", "onboarding"].includes(activeScreen)
 
   return (
     <div className="h-dvh bg-background flex flex-col max-w-lg mx-auto overflow-hidden">

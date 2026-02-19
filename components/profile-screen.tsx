@@ -23,6 +23,7 @@ import {
   Target,
   ShieldCheck,
   Lock,
+  FlaskConical,
 } from "lucide-react"
 import { motion } from "framer-motion"
 
@@ -83,6 +84,7 @@ const menuItems: MenuItem[] = [
   { icon: Shield, label: "Privacy & Security", screen: "privacy" },
   { icon: Star, label: "Switch Premium", highlight: true, screen: "premium" },
   { icon: HelpCircle, label: "Help Center", screen: "help" },
+  { icon: FlaskConical, label: "Testing", screen: "testing" },
   { icon: LogOut, label: "Log Out", danger: true },
 ]
 
