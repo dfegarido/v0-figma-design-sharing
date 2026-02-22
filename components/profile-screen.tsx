@@ -20,6 +20,10 @@ import {
   Bath,
   Square,
   Camera,
+  Target,
+  ShieldCheck,
+  Lock,
+  FlaskConical,
 } from "lucide-react"
 import { motion } from "framer-motion"
 
@@ -73,10 +77,14 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  { icon: Target, label: "My Criteria", screen: "criteria" },
+  { icon: ShieldCheck, label: "Verify Ownership", screen: "verification" },
+  { icon: Lock, label: "Unlock Chat", screen: "unlock" },
   { icon: Bell, label: "Notifications", badge: "3", screen: "notifications" },
   { icon: Shield, label: "Privacy & Security", screen: "privacy" },
   { icon: Star, label: "Switch Premium", highlight: true, screen: "premium" },
   { icon: HelpCircle, label: "Help Center", screen: "help" },
+  { icon: FlaskConical, label: "Testing", screen: "testing" },
   { icon: LogOut, label: "Log Out", danger: true },
 ]
 

@@ -9,12 +9,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Camera, Upload, X } from "lucide-react";
+import { Camera, Upload, X, Home, Building2, Landmark, LayoutGrid, LandPlot } from "lucide-react";
 import Image from "next/image";
+import { Badge } from "@/components/ui/badge";
+import type { BuyerCriteria } from "./buyer-criteria-screen";
+import { defaultBuyerCriteria } from "./buyer-criteria-screen";
 
 interface OnboardingFlowProps {
   onBack: () => void;
-  onComplete: () => void;
+  onComplete: (criteria?: BuyerCriteria) => void;
 }
 
 const STEPS = [
@@ -23,6 +26,23 @@ const STEPS = [
   { title: "Step 3", subtitle: "We just need some basic details about your house" },
   { title: "Step 4", subtitle: "Show us what you got!" },
   { title: "Step 5", subtitle: "What do you want?" },
+  { title: "Step 6", subtitle: "What type of property are you after?" },
+  { title: "Step 7", subtitle: "How much land do you need?" },
+  { title: "Step 8", subtitle: "Pick features that matter to you" },
+];
+
+const propertyTypeCards = [
+  { type: "House" as const, icon: Home, label: "House" },
+  { type: "Apartment" as const, icon: Building2, label: "Apartment" },
+  { type: "Townhouse" as const, icon: Landmark, label: "Townhouse" },
+  { type: "Unit" as const, icon: LayoutGrid, label: "Unit" },
+  { type: "Land" as const, icon: LandPlot, label: "Land" },
+];
+
+const featureChips = [
+  "Pool", "Garden", "Ocean View", "City View", "Mountain View",
+  "Granny Flat", "Garage", "Solar Panels", "Renovated", "Heritage",
+  "Smart Home", "Fireplace", "Pet Friendly", "Quiet Street",
 ];
 
 export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
@@ -45,13 +65,29 @@ export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
     minCarBays: "",
     minSqm2: "",
     priceRange: [500000, 1200000],
+    preferredPropertyTypes: [] as string[],
+    preferredLandSize: [0, 2000],
+    preferredFeatures: [] as string[],
   });
 
   const handleNext = () => {
-    if (step < 5) {
+    if (step < 8) {
       setStep(step + 1);
     } else {
-      onComplete();
+      const criteria: BuyerCriteria = {
+        ...defaultBuyerCriteria,
+        suburbs: formData.preferredRegion ? [formData.preferredRegion] : [],
+        minPrice: formData.priceRange[0],
+        maxPrice: formData.priceRange[1],
+        minBeds: formData.minBedrooms ? parseInt(formData.minBedrooms) : 0,
+        minBaths: formData.minBathrooms ? parseInt(formData.minBathrooms) : 0,
+        minParking: formData.minCarBays ? parseInt(formData.minCarBays) : 0,
+        minLandSize: formData.preferredLandSize[0],
+        maxLandSize: formData.preferredLandSize[1],
+        propertyTypes: formData.preferredPropertyTypes as BuyerCriteria["propertyTypes"],
+        features: formData.preferredFeatures,
+      };
+      onComplete(criteria);
     }
   };
 
@@ -64,9 +100,23 @@ export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
   };
 
   const handleSkip = () => {
-    if (step < 5) {
+    if (step < 8) {
       setStep(step + 1);
     }
+  };
+
+  const togglePropertyType = (type: string) => {
+    const types = formData.preferredPropertyTypes.includes(type)
+      ? formData.preferredPropertyTypes.filter((t) => t !== type)
+      : [...formData.preferredPropertyTypes, type];
+    setFormData({ ...formData, preferredPropertyTypes: types });
+  };
+
+  const toggleFeature = (feature: string) => {
+    const features = formData.preferredFeatures.includes(feature)
+      ? formData.preferredFeatures.filter((f) => f !== feature)
+      : [...formData.preferredFeatures, feature];
+    setFormData({ ...formData, preferredFeatures: features });
   };
 
   const handleImageUpload = (isMain: boolean) => {
@@ -413,6 +463,84 @@ export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
                 <span>${(formData.priceRange[0] / 1000).toFixed(0)}k</span>
                 <span>${(formData.priceRange[1] / 1000000).toFixed(1)}m</span>
               </div>
+            </div>
+          </div>
+        );
+
+      case 6:
+        return (
+          <div className="space-y-6">
+            <p className="text-muted-foreground text-sm text-center">Select all that interest you</p>
+            <div className="grid grid-cols-2 gap-3">
+              {propertyTypeCards.map(({ type, icon: Icon, label }) => {
+                const selected = formData.preferredPropertyTypes.includes(type);
+                return (
+                  <button
+                    key={type}
+                    onClick={() => togglePropertyType(type)}
+                    className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${
+                      selected
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <Icon className={`w-8 h-8 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className={`font-medium ${selected ? "text-primary" : "text-foreground"}`}>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+
+      case 7:
+        return (
+          <div className="space-y-8">
+            <p className="text-muted-foreground text-sm text-center">Drag to set your preferred land size range</p>
+            <div className="space-y-6 px-2">
+              <Slider
+                value={formData.preferredLandSize}
+                onValueChange={(value) => setFormData({ ...formData, preferredLandSize: value })}
+                min={0}
+                max={2000}
+                step={50}
+                className="py-4"
+              />
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>{formData.preferredLandSize[0]}m²</span>
+                <span>{formData.preferredLandSize[1]}m²</span>
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={() => setFormData({ ...formData, preferredLandSize: [0, 2000] })}
+                className="text-sm text-primary underline"
+              >
+                {"I don't mind"}
+              </button>
+            </div>
+          </div>
+        );
+
+      case 8:
+        return (
+          <div className="space-y-6">
+            <p className="text-muted-foreground text-sm text-center">Pick all the features that matter to you</p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {featureChips.map((feature) => (
+                <Badge
+                  key={feature}
+                  variant={formData.preferredFeatures.includes(feature) ? "default" : "outline"}
+                  className={`cursor-pointer px-4 py-2 text-sm transition-all ${
+                    formData.preferredFeatures.includes(feature)
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-secondary"
+                  }`}
+                  onClick={() => toggleFeature(feature)}
+                >
+                  {feature}
+                </Badge>
+              ))}
             </div>
           </div>
         );

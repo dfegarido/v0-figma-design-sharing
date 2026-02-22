@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Camera, X, Upload, Home, DollarSign, MapPin, Bed, Bath, Square, Sparkles } from "lucide-react"
+import { Camera, X, Upload, Home, DollarSign, MapPin, Bed, Bath, Square, Sparkles, LandPlot, Building2, Car } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface AddListingFormProps {
@@ -37,6 +37,8 @@ const lookingForOptions = [
   "Condo for retirement",
 ]
 
+const propertyTypes = ["House", "Apartment", "Townhouse", "Unit", "Land"]
+
 export function AddListingForm({ onSuccess }: AddListingFormProps) {
   const [step, setStep] = useState(1)
   const [images, setImages] = useState<string[]>([])
@@ -48,7 +50,11 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
     price: "",
     beds: "",
     baths: "",
+    parking: "",
     sqft: "",
+    landSize: "",
+    propertyType: "",
+    specialConditions: "",
     lookingFor: "",
     description: "",
   })
@@ -86,8 +92,9 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
   }
 
   const isStep1Valid = images.length >= 1
-  const isStep2Valid = formData.address && formData.city && formData.price
-  const isStep3Valid = formData.beds && formData.baths && formData.sqft && formData.lookingFor
+  const isStep2Valid = formData.address && formData.city && formData.price && formData.propertyType
+  const isStep3Valid = formData.beds && formData.baths && formData.sqft
+  const isStep4Valid = formData.lookingFor
 
   return (
     <div className="h-full overflow-auto pb-6">
@@ -95,10 +102,10 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
       <div className="sticky top-0 bg-card/95 backdrop-blur-lg px-4 py-4 border-b border-border">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-bold text-foreground">List Your Home</h2>
-          <span className="text-sm text-muted-foreground">Step {step} of 3</span>
+          <span className="text-sm text-muted-foreground">Step {step} of 4</span>
         </div>
         <div className="flex gap-2">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
@@ -223,6 +230,26 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="propertyType" className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                    Property Type
+                  </Label>
+                  <Select
+                    value={formData.propertyType}
+                    onValueChange={(v) => setFormData({ ...formData, propertyType: v })}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl">
+                      <SelectValue placeholder="Select type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {propertyTypes.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="price" className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-muted-foreground" />
                     Estimated Value
@@ -257,7 +284,7 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
             </motion.div>
           )}
 
-          {/* Step 3: Details & Preferences */}
+          {/* Step 3: Property Specs */}
           {step === 3 && (
             <motion.div
               key="step3"
@@ -267,9 +294,9 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
               className="space-y-6"
             >
               <div>
-                <h3 className="text-xl font-bold text-foreground mb-2">More Details</h3>
+                <h3 className="text-xl font-bold text-foreground mb-2">Property Specs</h3>
                 <p className="text-muted-foreground text-sm">
-                  Help us find your perfect match
+                  Tell us about the size and features
                 </p>
               </div>
 
@@ -288,9 +315,7 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
                     </SelectTrigger>
                     <SelectContent>
                       {[1, 2, 3, 4, 5, 6].map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n}
-                        </SelectItem>
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -310,28 +335,97 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
                     </SelectTrigger>
                     <SelectContent>
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n}
-                        </SelectItem>
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="parking" className="flex items-center gap-1 text-xs">
+                    <Car className="w-3 h-3" />
+                    Parking
+                  </Label>
+                  <Select
+                    value={formData.parking}
+                    onValueChange={(v) => setFormData({ ...formData, parking: v })}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl">
+                      <SelectValue placeholder="0" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[0, 1, 2, 3, 4].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
                   <Label htmlFor="sqft" className="flex items-center gap-1 text-xs">
                     <Square className="w-3 h-3" />
-                    Sqft
+                    Floor Area (m²)
                   </Label>
                   <Input
                     id="sqft"
                     type="number"
-                    placeholder="2000"
+                    placeholder="200"
                     value={formData.sqft}
                     onChange={(e) => setFormData({ ...formData, sqft: e.target.value })}
                     className="h-12 rounded-xl"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="landSize" className="flex items-center gap-1 text-xs">
+                    <LandPlot className="w-3 h-3" />
+                    Land Size (m²)
+                  </Label>
+                  <Input
+                    id="landSize"
+                    type="number"
+                    placeholder="450"
+                    value={formData.landSize}
+                    onChange={(e) => setFormData({ ...formData, landSize: e.target.value })}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-14 rounded-2xl bg-transparent"
+                  onClick={() => setStep(2)}
+                >
+                  Back
+                </Button>
+                <Button
+                  className="flex-1 h-14 rounded-2xl text-lg font-semibold"
+                  disabled={!isStep3Valid}
+                  onClick={() => setStep(4)}
+                >
+                  Continue
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 4: Features, Preferences & Description */}
+          {step === 4 && (
+            <motion.div
+              key="step4"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Features & Preferences</h3>
+                <p className="text-muted-foreground text-sm">
+                  Help us find your perfect match
+                </p>
               </div>
 
               {/* What you're looking for */}
@@ -346,9 +440,7 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {lookingForOptions.map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {opt}
-                      </SelectItem>
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -375,6 +467,18 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
                 </div>
               </div>
 
+              {/* Special Conditions */}
+              <div className="space-y-2">
+                <Label htmlFor="specialConditions">Special Conditions (optional)</Label>
+                <Textarea
+                  id="specialConditions"
+                  placeholder="e.g. Granny flat included, DA approved, heritage listed..."
+                  value={formData.specialConditions}
+                  onChange={(e) => setFormData({ ...formData, specialConditions: e.target.value })}
+                  className="min-h-20 rounded-xl resize-none"
+                />
+              </div>
+
               {/* Description */}
               <div className="space-y-2">
                 <Label htmlFor="description">Description (optional)</Label>
@@ -391,13 +495,13 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
                 <Button
                   variant="outline"
                   className="flex-1 h-14 rounded-2xl bg-transparent"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(3)}
                 >
                   Back
                 </Button>
                 <Button
                   className="flex-1 h-14 rounded-2xl text-lg font-semibold"
-                  disabled={!isStep3Valid || isSubmitting}
+                  disabled={!isStep4Valid || isSubmitting}
                   onClick={handleSubmit}
                 >
                   {isSubmitting ? (
