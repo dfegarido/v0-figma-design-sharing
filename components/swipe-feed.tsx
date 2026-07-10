@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { AnimatePresence } from "framer-motion"
 import { SwipeCard } from "./swipe-card"
 import { PropertyCard, type Property } from "./property-card"
@@ -205,6 +205,8 @@ export const userProperty: Property = {
 interface SwipeFeedProps {
   onNavigate?: (screen: string) => void
   buyerCriteria?: BuyerCriteria | null
+  canChat?: boolean
+  onNavigateUnlock?: () => void
 }
 
 function applyScoresAndSort(properties: Property[], criteria: BuyerCriteria | null | undefined): Property[] {
@@ -214,7 +216,7 @@ function applyScoresAndSort(properties: Property[], criteria: BuyerCriteria | nu
     .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
 }
 
-export function SwipeFeed({ onNavigate, buyerCriteria }: SwipeFeedProps) {
+export function SwipeFeed({ onNavigate, buyerCriteria, canChat = true, onNavigateUnlock }: SwipeFeedProps) {
   const [properties, setProperties] = useState<Property[]>(() => applyScoresAndSort(sampleProperties, buyerCriteria))
   const [currentIndex, setCurrentIndex] = useState(0)
   const [history, setHistory] = useState<{ property: Property; action: string }[]>([])
@@ -224,9 +226,11 @@ export function SwipeFeed({ onNavigate, buyerCriteria }: SwipeFeedProps) {
 
   const currentProperty = properties[currentIndex]
   const remainingCards = properties.length - currentIndex
+  const isSwiping = useRef(false)
 
   const handleSwipe = useCallback((direction: "left" | "right" | "up") => {
-    if (!currentProperty) return
+    if (!currentProperty || isSwiping.current) return
+    isSwiping.current = true
 
     setHistory((prev) => [...prev, { property: currentProperty, action: direction }])
 
@@ -238,6 +242,7 @@ export function SwipeFeed({ onNavigate, buyerCriteria }: SwipeFeedProps) {
 
     setTimeout(() => {
       setCurrentIndex((prev) => prev + 1)
+      isSwiping.current = false
     }, 300)
   }, [currentProperty])
 
@@ -248,6 +253,7 @@ export function SwipeFeed({ onNavigate, buyerCriteria }: SwipeFeedProps) {
   }, [history.length, currentIndex])
 
   const handleReset = () => {
+    setFilters(defaultFilters)
     setProperties(applyScoresAndSort(sampleProperties, buyerCriteria))
     setCurrentIndex(0)
     setHistory([])
@@ -256,7 +262,13 @@ export function SwipeFeed({ onNavigate, buyerCriteria }: SwipeFeedProps) {
   const handleFiltersChange = (newFilters: FilterValues) => {
     setFilters(newFilters)
     const filtered = sampleProperties.filter((p) => {
-      if (newFilters.suburb && !p.suburb.toLowerCase().includes(newFilters.suburb.toLowerCase())) return false
+      if (newFilters.suburb) {
+        const wantedSuburbs = newFilters.suburb
+          .split(",")
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+        if (wantedSuburbs.length > 0 && !wantedSuburbs.some((s) => p.suburb.toLowerCase().includes(s))) return false
+      }
       if (p.price < newFilters.minPrice || p.price > newFilters.maxPrice) return false
       if (p.bedrooms < newFilters.minBeds) return false
       if (p.bathrooms < newFilters.minBaths) return false
@@ -352,6 +364,11 @@ export function SwipeFeed({ onNavigate, buyerCriteria }: SwipeFeedProps) {
           onMessage={() => {
             setShowMatch(false)
             onNavigate?.("messages")
+          }}
+          canChat={canChat}
+          onUnlock={() => {
+            setShowMatch(false)
+            onNavigateUnlock?.()
           }}
           yourProperty={userProperty}
           matchedProperty={matchedProperty}
