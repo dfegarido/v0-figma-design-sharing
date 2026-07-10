@@ -133,8 +133,13 @@ export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
     } else {
       const newImages = [...formData.additionalImages];
       if (newImages.length < 3) {
-        newImages.push(placeholderImages[newImages.length + 1]);
-        setFormData({ ...formData, additionalImages: newImages });
+        const next = placeholderImages.find(
+          (img) => img !== formData.mainImage && !newImages.includes(img)
+        );
+        if (next) {
+          newImages.push(next);
+          setFormData({ ...formData, additionalImages: newImages });
+        }
       }
     }
   };
@@ -551,10 +556,10 @@ export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col h-full bg-background">
       <ScreenHeader onBack={handleBack} />
 
-      <div className="flex-1 flex flex-col px-6">
+      <div className="flex-1 overflow-y-auto flex flex-col px-6">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold mb-2">{STEPS[step - 1].title}</h2>
           <p className="text-muted-foreground text-sm">{STEPS[step - 1].subtitle}</p>
