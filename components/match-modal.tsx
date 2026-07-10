@@ -164,7 +164,7 @@ export function MatchModal({ isOpen, onClose, onMessage, onUnlock, canChat = tru
                   {priceDiff > 0 ? "+" : "-"}{formatPriceDiff(priceDiff)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {priceDiff > 0 ? "You may receive" : "You may pay"}
+                  {priceDiff > 0 ? "You may pay" : "You may receive"}
                 </p>
               </motion.div>
             )}

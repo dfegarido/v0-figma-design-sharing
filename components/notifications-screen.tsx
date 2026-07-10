@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, Heart, ArrowLeftRight, MessageCircle, Star, Bell, Home, Check, ShieldCheck, Users } from "lucide-react"
 import { motion } from "framer-motion"
@@ -41,7 +42,7 @@ const notifications: Notification[] = [
     timestamp: "1 hour ago",
     read: false,
     image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-    actionId: "chat-2",
+    actionId: "2",
   },
   {
     id: "3",
@@ -111,9 +112,11 @@ const getNotificationColor = (type: Notification["type"]) => {
 }
 
 export function NotificationsScreen({ onBack, onViewMatch, onViewMessage }: NotificationsScreenProps) {
-  const unreadCount = notifications.filter(n => !n.read).length
+  const [items, setItems] = useState(notifications)
+  const unreadCount = items.filter((n) => !n.read).length
 
   const handleNotificationClick = (notification: Notification) => {
+    setItems((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)))
     if (notification.type === "match" && notification.actionId && onViewMatch) {
       onViewMatch(notification.actionId)
     } else if (notification.type === "message" && notification.actionId && onViewMessage) {
@@ -133,7 +136,12 @@ export function NotificationsScreen({ onBack, onViewMatch, onViewMessage }: Noti
             <h2 className="text-xl font-bold text-foreground">Notifications</h2>
           </div>
           {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="text-primary text-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-primary text-sm"
+              onClick={() => setItems((prev) => prev.map((n) => ({ ...n, read: true })))}
+            >
               <Check className="h-4 w-4 mr-1" />
               Mark all read
             </Button>
@@ -143,9 +151,9 @@ export function NotificationsScreen({ onBack, onViewMatch, onViewMessage }: Noti
 
       {/* Notifications list */}
       <div className="px-4 py-4">
-        {notifications.length > 0 ? (
+        {items.length > 0 ? (
           <div className="space-y-2">
-            {notifications.map((notification, index) => {
+            {items.map((notification, index) => {
               const Icon = getNotificationIcon(notification.type)
               return (
                 <motion.button

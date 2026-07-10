@@ -195,10 +195,15 @@ export function ListingsPage() {
                             Approve
                           </DropdownMenuItem>
                         )}
-                        {listing.status !== "flagged" && (
+                        {listing.status !== "flagged" ? (
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStatusChange(listing.id, "flagged") }} className="text-amber-600">
                             <Flag className="mr-2 h-4 w-4" />
                             Flag
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStatusChange(listing.id, "active") }}>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Unflag
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />

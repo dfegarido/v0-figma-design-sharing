@@ -52,8 +52,8 @@ export function AddPropertyScreen({ onComplete }: AddPropertyScreenProps) {
       "/houses/house-6.jpg",
     ]
     if (images.length < 6) {
-      const nextImage = placeholders[images.length]
-      setImages([...images, nextImage])
+      const nextImage = placeholders.find((img) => !images.includes(img))
+      if (nextImage) setImages([...images, nextImage])
     }
   }
 

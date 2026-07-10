@@ -38,6 +38,7 @@ export function ChatsPage() {
   const [search, setSearch] = useState("")
   const [selectedChat, setSelectedChat] = useState<AdminChat | null>(null)
   const [systemMessage, setSystemMessage] = useState("")
+  const [transcript, setTranscript] = useState(mockTranscript)
 
   const filtered = chats.filter((c) => {
     const matchesSearch = c.participants.some((p) =>
@@ -170,7 +171,7 @@ export function ChatsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 max-h-96 overflow-y-auto mb-4">
-                  {mockTranscript.map((msg, i) => (
+                  {transcript.map((msg, i) => (
                     <div
                       key={i}
                       className={`${
@@ -212,7 +213,22 @@ export function ChatsPage() {
                     onChange={(e) => setSystemMessage(e.target.value)}
                     className="flex-1"
                   />
-                  <Button size="icon" disabled={!systemMessage.trim()}>
+                  <Button
+                    size="icon"
+                    disabled={!systemMessage.trim()}
+                    onClick={() => {
+                      setTranscript((prev) => [
+                        ...prev,
+                        {
+                          sender: "System",
+                          message: systemMessage.trim(),
+                          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                          isSystem: true,
+                        },
+                      ])
+                      setSystemMessage("")
+                    }}
+                  >
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
