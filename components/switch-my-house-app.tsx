@@ -70,8 +70,8 @@ export function SwitchMyHouseApp() {
   }
 
   const handleBack = () => {
-    if (activeScreen === "chat" && previousScreen === "matches") {
-      setActiveScreen("matches")
+    if (activeScreen === "chat" && ["matches", "notifications"].includes(previousScreen)) {
+      setActiveScreen(previousScreen)
     } else if (activeScreen === "property-detail") {
       setActiveScreen(previousScreen)
     } else {
@@ -110,7 +110,7 @@ export function SwitchMyHouseApp() {
         return (
           <PremiumScreen
             onBack={handleBack}
-            isPremium={canChat}
+            isPremium={premiumPlan !== null}
             activePlan={premiumPlan}
             onSubscribe={(plan) => {
               setPremiumPlan(plan)
@@ -119,7 +119,6 @@ export function SwitchMyHouseApp() {
             }}
             onCancel={() => {
               setPremiumPlan(null)
-              setVerificationStatus("unverified")
               setChatUnlocked(false)
             }}
           />
@@ -127,7 +126,13 @@ export function SwitchMyHouseApp() {
       case "help":
         return <HelpCenterScreen onBack={handleBack} />
       case "notifications":
-        return <NotificationsScreen onBack={handleBack} onViewMessage={handleOpenChat} />
+        return (
+          <NotificationsScreen
+            onBack={handleBack}
+            onViewMessage={handleOpenChat}
+            onViewMatch={() => handleNavigateToScreen("matches")}
+          />
+        )
       case "chat":
         return <ChatDetailScreen chatId={activeChatId || "1"} onBack={handleBack} />
       case "matches":
@@ -222,6 +227,8 @@ export function SwitchMyHouseApp() {
           <SwipeFeed
             onNavigate={(screen) => handleTabChange(screen as Tab)}
             buyerCriteria={buyerCriteria}
+            canChat={canChat}
+            onNavigateUnlock={handleNavigateUnlock}
           />
         )
       case "search":
@@ -248,6 +255,8 @@ export function SwitchMyHouseApp() {
           <SwipeFeed
             onNavigate={(screen) => handleTabChange(screen as Tab)}
             buyerCriteria={buyerCriteria}
+            canChat={canChat}
+            onNavigateUnlock={handleNavigateUnlock}
           />
         )
     }
