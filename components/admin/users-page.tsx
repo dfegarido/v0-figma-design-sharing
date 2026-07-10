@@ -213,13 +213,20 @@ export function UsersPage() {
                           )}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        {user.status !== "suspended" && (
+                        {user.status !== "suspended" ? (
                           <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); setBanDialog({ user, action: "suspend" }) }}
                             className="text-amber-600"
                           >
                             <UserX className="mr-2 h-4 w-4" />
                             Suspend
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={(e) => { e.stopPropagation(); handleStatusChange(user.id, "active") }}
+                          >
+                            <ShieldCheck className="mr-2 h-4 w-4" />
+                            Reinstate
                           </DropdownMenuItem>
                         )}
                         {user.status !== "banned" ? (
