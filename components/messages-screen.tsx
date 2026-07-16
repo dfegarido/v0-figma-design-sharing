@@ -7,12 +7,15 @@ import { Input } from "@/components/ui/input"
 import { Search, ArrowLeftRight, CheckCheck, Lock } from "lucide-react"
 import { motion } from "framer-motion"
 import type { VerificationStatus } from "./verification-screen"
+import { toast } from "sonner"
 
 interface MessagesScreenProps {
   onOpenChat: (chatId: string) => void
   verificationStatus?: VerificationStatus
-  chatUnlocked?: boolean
   onNavigateUnlock?: () => void
+  isPremium?: boolean
+  freeUnlockedChatId?: string | null
+  onUnlockChatSlot?: (chatId: string) => void
 }
 
 interface Match {
@@ -71,15 +74,37 @@ const sampleMatches: Match[] = [
   },
 ]
 
-export function MessagesScreen({ onOpenChat, verificationStatus = "verified", chatUnlocked = true, onNavigateUnlock }: MessagesScreenProps) {
-  const canChat = verificationStatus === "verified" && chatUnlocked
+export function MessagesScreen({
+  onOpenChat,
+  verificationStatus = "verified",
+  onNavigateUnlock,
+  isPremium = false,
+  freeUnlockedChatId = null,
+  onUnlockChatSlot,
+}: MessagesScreenProps) {
+  const chatEnabled = verificationStatus === "verified" || isPremium
+
+  const canOpenChat = (matchId: string) => {
+    if (!chatEnabled) return false
+    if (isPremium) return true
+    return freeUnlockedChatId === null || freeUnlockedChatId === matchId
+  }
 
   const handleChatClick = (matchId: string) => {
-    if (canChat) {
+    if (canOpenChat(matchId)) {
+      if (!isPremium && freeUnlockedChatId === null) {
+        onUnlockChatSlot?.(matchId)
+      }
       onOpenChat(matchId)
-    } else {
-      onNavigateUnlock?.()
+      return
     }
+
+    if (!isPremium) {
+      toast.message("Free accounts can only chat with 1 user at a time.")
+      return
+    }
+
+    onNavigateUnlock?.()
   }
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
@@ -207,7 +232,7 @@ export function MessagesScreen({ onOpenChat, verificationStatus = "verified", ch
                   )}
                 </div>
               </div>
-              {!canChat && (
+              {!canOpenChat(match.id) && (
                 <div className="absolute inset-0 rounded-2xl bg-card/60 backdrop-blur-[1px] flex items-center justify-center">
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <Lock className="h-4 w-4" />

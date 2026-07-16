@@ -1,63 +1,96 @@
-"use client";
+"use client"
 
-import { Logo } from "./logo";
-import { PageFooter } from "./page-footer";
-import { ChevronRight, Home } from "lucide-react";
+import Image from "next/image"
+import { motion } from "framer-motion"
+import { Check } from "lucide-react"
+import { AuthBlobs } from "./auth/auth-blobs"
+import { AuthPrimaryButton } from "./auth/auth-primary-button"
+import { AuthOutlineButton } from "./auth/auth-outline-button"
 
 interface LandingScreenProps {
-  onLogin: () => void;
-  onSignup: () => void;
-  onLearnMore: () => void;
+  onLogin: () => void
+  onSignup: () => void
 }
 
-export function LandingScreen({ onLogin, onSignup, onLearnMore }: LandingScreenProps) {
+const TRUST_PILLS = ["Verified Owners", "Secure Messaging", "Trusted Swaps"]
+
+export function LandingScreen({ onLogin, onSignup }: LandingScreenProps) {
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
-        <Logo size="lg" className="mb-16" />
-        
-        <div className="w-full max-w-xs space-y-4">
-          {/* Login Button */}
-          <button
-            onClick={onLogin}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-foreground rounded-lg hover:bg-foreground/5 transition-colors"
-          >
-            <div className="w-10 h-10 flex items-center justify-center">
-              <ChevronRight className="w-8 h-8" strokeWidth={2} />
-            </div>
-            <span className="text-lg font-medium">Log in</span>
-          </button>
+    <div className="relative flex min-h-screen flex-col bg-gradient-to-b from-[#FFF8F6] to-[#FFEFEB]">
+      <AuthBlobs />
 
-          {/* Sign Up Button */}
-          <button
-            onClick={onSignup}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-foreground rounded-lg hover:bg-foreground/5 transition-colors"
+      <div className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col justify-between px-6 py-12">
+        <div className="mt-12 flex flex-col items-center gap-8">
+          <motion.div
+            initial={{ opacity: 0, y: 25 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
           >
-            <div className="w-10 h-10 flex items-center justify-center">
-              <Home className="w-7 h-7 text-primary" strokeWidth={2} />
-            </div>
-            <span className="text-lg font-medium">Sign Up</span>
-          </button>
+            <motion.div
+              animate={{ y: [-6, 6, -6] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              className="flex h-[140px] w-[140px] items-center justify-center rounded-full bg-white shadow-[0_12px_40px_rgba(255,90,95,0.12)]"
+            >
+              <Image
+                src="/logo.png"
+                alt="Switch My House"
+                width={80}
+                height={80}
+                className="object-contain"
+              />
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.12 }}
+            className="text-center"
+          >
+            <h1 className="text-[38px] font-bold leading-[44px] text-[#222222]">
+              Find Your Perfect
+              <br />
+              Home Swap
+            </h1>
+          </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.24 }}
+            className="max-w-[300px] text-center text-base leading-6 text-[#717171]"
+          >
+            Stay anywhere with verified homeowners around the world.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.36 }}
+            className="flex flex-wrap justify-center gap-2"
+          >
+            {TRUST_PILLS.map((pill) => (
+              <div
+                key={pill}
+                className="flex items-center gap-1.5 rounded-full border border-[#E8E8E8] bg-white px-3.5 py-1.5 shadow-sm"
+              >
+                <Check className="h-3 w-3 text-[#FF5A5F]" />
+                <span className="text-xs font-medium text-[#717171]">{pill}</span>
+              </div>
+            ))}
+          </motion.div>
         </div>
 
-        <div className="mt-16 text-center">
-          <p className="text-muted-foreground">
-            There is a new word in property, Switch!
-          </p>
-          <button 
-            onClick={onLearnMore}
-            className="text-primary hover:underline mt-1"
-          >
-            Learn more here
-          </button>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.48 }}
+          className="w-full space-y-3"
+        >
+          <AuthPrimaryButton onClick={onLogin}>Log In</AuthPrimaryButton>
+          <AuthOutlineButton onClick={onSignup}>Create Account</AuthOutlineButton>
+        </motion.div>
       </div>
-
-      <div className="text-center text-xs text-muted-foreground py-4">
-        © 2025 by Switch My House
-      </div>
-
-      <PageFooter />
     </div>
-  );
+  )
 }

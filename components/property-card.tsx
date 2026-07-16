@@ -64,7 +64,7 @@ export function PropertyCard({ property, showOwner = true, onTap }: PropertyCard
   return (
     <div className="relative h-full w-full overflow-hidden rounded-3xl bg-card shadow-xl">
       {/* Image carousel */}
-      <div className="relative h-[65%] w-full">
+      <div className="relative h-[58%] w-full">
         <Image
           src={property.images[currentImageIndex] || "/placeholder.svg"}
           alt={property.location}
@@ -121,7 +121,7 @@ export function PropertyCard({ property, showOwner = true, onTap }: PropertyCard
       </div>
 
       {/* Property info */}
-      <div className="p-5 space-y-3">
+      <div className="p-4 space-y-2.5">
         {/* Location */}
         <div className="flex items-start gap-2">
           <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
@@ -129,32 +129,32 @@ export function PropertyCard({ property, showOwner = true, onTap }: PropertyCard
             <h3 className="text-xl font-semibold text-foreground leading-tight">
               {property.suburb}
             </h3>
-            <p className="text-sm text-muted-foreground">{property.location}</p>
+            <p className="text-xs text-muted-foreground">{property.location}</p>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="flex items-center justify-between bg-secondary/50 rounded-2xl p-3">
+        <div className="flex items-center justify-between bg-secondary/50 rounded-2xl px-3 py-2">
           <div className="flex items-center gap-1.5">
             <Bed className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{property.bedrooms}</span>
+            <span className="text-xs font-medium">{property.bedrooms}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Bath className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{property.bathrooms}</span>
+            <span className="text-xs font-medium">{property.bathrooms}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Car className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{property.parking}</span>
+            <span className="text-xs font-medium">{property.parking}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Ruler className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{property.sqm}m²</span>
+            <span className="text-xs font-medium">{property.sqm}m²</span>
           </div>
           {property.landSize && (
             <div className="flex items-center gap-1.5">
               <LandPlot className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{property.landSize}m²</span>
+              <span className="text-xs font-medium">{property.landSize}m²</span>
             </div>
           )}
         </div>
@@ -163,12 +163,12 @@ export function PropertyCard({ property, showOwner = true, onTap }: PropertyCard
         {property.tags && property.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {property.tags.slice(0, 4).map((tag) => (
-              <Badge key={tag} variant="outline" className="text-xs rounded-full px-2.5 py-0.5">
+              <Badge key={tag} variant="outline" className="text-[11px] rounded-full px-2 py-0.5">
                 {tag}
               </Badge>
             ))}
             {property.tags.length > 4 && (
-              <Badge variant="outline" className="text-xs rounded-full px-2.5 py-0.5 text-muted-foreground">
+              <Badge variant="outline" className="text-[11px] rounded-full px-2 py-0.5 text-muted-foreground">
                 +{property.tags.length - 4}
               </Badge>
             )}
@@ -177,25 +177,25 @@ export function PropertyCard({ property, showOwner = true, onTap }: PropertyCard
 
         {/* Owner */}
         {showOwner && (
-          <div className="flex items-center gap-3 pt-1">
-            <div className="h-10 w-10 rounded-full bg-secondary overflow-hidden">
+          <div className="flex items-center gap-2.5 pt-0.5">
+            <div className="h-9 w-9 rounded-full bg-secondary overflow-hidden">
               {property.ownerImage ? (
                 <Image
                   src={property.ownerImage || "/placeholder.svg"}
                   alt={property.ownerName}
-                  width={40}
-                  height={40}
+                  width={36}
+                  height={36}
                   className="object-cover"
                 />
               ) : (
-                <div className="h-full w-full flex items-center justify-center text-sm font-medium text-muted-foreground">
+                <div className="h-full w-full flex items-center justify-center text-xs font-medium text-muted-foreground">
                   {property.ownerName.charAt(0)}
                 </div>
               )}
             </div>
             <div className="flex items-center gap-2">
               <div>
-                <p className="text-sm font-medium">{property.ownerName}</p>
+                <p className="text-xs font-medium">{property.ownerName}</p>
                 <p className="text-xs text-muted-foreground">Property Owner</p>
               </div>
               {property.verified && (

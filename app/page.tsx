@@ -1,5 +1,5 @@
-import { SwitchMyHouseApp } from "@/components/switch-my-house-app";
+import { AppShell } from "@/components/app-shell";
 
 export default function Home() {
-  return <SwitchMyHouseApp />;
+  return <AppShell />;
 }

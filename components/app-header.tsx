@@ -1,20 +1,35 @@
 "use client"
 
+import Image from "next/image"
 import { Bell, User, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
 interface AppHeaderProps {
   notificationCount?: number
+  avatarUrl?: string | null
+  userName?: string | null
   onNotificationsClick?: () => void
   onProfileClick?: () => void
 }
 
-export function AppHeader({ notificationCount = 0, onNotificationsClick, onProfileClick }: AppHeaderProps) {
+export function AppHeader({
+  notificationCount = 0,
+  avatarUrl,
+  userName,
+  onNotificationsClick,
+  onProfileClick,
+}: AppHeaderProps) {
+  const initials = userName
+    ?.split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
+
   return (
     <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-lg border-b border-border">
       <div className="flex items-center justify-between h-16 px-4">
-        {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
             <Home className="w-5 h-5 text-card" />
@@ -25,7 +40,6 @@ export function AppHeader({ notificationCount = 0, onNotificationsClick, onProfi
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -42,8 +56,20 @@ export function AppHeader({ notificationCount = 0, onNotificationsClick, onProfi
             <span className="sr-only">Notifications</span>
           </Button>
           <Button variant="ghost" size="icon" className="rounded-full" onClick={onProfileClick}>
-            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-              <User className="w-4 h-4 text-muted-foreground" />
+            <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden flex items-center justify-center">
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={userName || "Profile"}
+                  width={32}
+                  height={32}
+                  className="object-cover w-full h-full"
+                />
+              ) : initials ? (
+                <span className="text-xs font-semibold text-muted-foreground">{initials}</span>
+              ) : (
+                <User className="w-4 h-4 text-muted-foreground" />
+              )}
             </div>
             <span className="sr-only">Profile</span>
           </Button>

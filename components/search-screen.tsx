@@ -18,6 +18,8 @@ import {
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
+import { useUserData } from "@/context/user-data-context"
 
 interface SearchResult {
   id: string
@@ -79,6 +81,7 @@ const sampleResults: SearchResult[] = [
 ]
 
 export function SearchScreen() {
+  const { isPremium } = useUserData()
   const [searchQuery, setSearchQuery] = useState("")
   const [priceRange, setPriceRange] = useState([500000, 5000000])
   const [bedsFilter, setBedsFilter] = useState<number | null>(null)
@@ -108,9 +111,12 @@ export function SearchScreen() {
     const matchesSearch =
       house.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
       house.city.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesPrice =
-      house.price >= priceRange[0] && house.price <= priceRange[1]
-    const matchesBeds = bedsFilter === null || house.beds >= bedsFilter
+    const matchesPrice = !isPremium
+      ? true
+      : house.price >= priceRange[0] && house.price <= priceRange[1]
+    const matchesBeds = !isPremium
+      ? true
+      : bedsFilter === null || house.beds >= bedsFilter
     return matchesSearch && matchesPrice && matchesBeds
   })
 
@@ -132,29 +138,38 @@ export function SearchScreen() {
             variant="outline"
             size="icon"
             className="w-12 h-12 rounded-xl border-border bg-transparent"
-            onClick={() => setShowFilters(true)}
+            onClick={() => {
+              if (!isPremium) {
+                toast.message("Filters are a Premium feature.")
+                return
+              }
+              setShowFilters(true)
+            }}
+            disabled={!isPremium}
           >
             <SlidersHorizontal className="w-5 h-5" />
           </Button>
         </div>
 
         {/* Quick filters */}
-        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
-          {["Pool", "Modern", "Ocean View", "Garden", "City Views"].map((tag) => (
-            <Badge
-              key={tag}
-              variant="outline"
-              className="cursor-pointer hover:bg-secondary whitespace-nowrap"
-            >
-              {tag}
-            </Badge>
-          ))}
-        </div>
+        {isPremium && (
+          <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+            {["Pool", "Modern", "Ocean View", "Garden", "City Views"].map((tag) => (
+              <Badge
+                key={tag}
+                variant="outline"
+                className="cursor-pointer hover:bg-secondary whitespace-nowrap"
+              >
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Filter Panel */}
       <AnimatePresence>
-        {showFilters && (
+        {showFilters && isPremium && (
           <>
             <motion.div
               initial={{ opacity: 0 }}

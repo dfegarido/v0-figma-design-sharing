@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
+import { createPortal } from "react-dom"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -21,7 +22,13 @@ interface MatchModalProps {
 export function MatchModal({ isOpen, onClose, onMessage, onUnlock, canChat = true, yourProperty, matchedProperty }: MatchModalProps) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [showConfetti, setShowConfetti] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
 
   useEffect(() => {
     if (isOpen && containerRef.current) {
@@ -44,7 +51,9 @@ export function MatchModal({ isOpen, onClose, onMessage, onUnlock, canChat = tru
     return `$${(absDiff / 1000).toFixed(0)}K`
   }
 
-  return (
+  if (!mounted) return null
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -52,7 +61,7 @@ export function MatchModal({ isOpen, onClose, onMessage, onUnlock, canChat = tru
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
         >
           {showConfetti && containerSize.width > 0 && (
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -206,5 +215,7 @@ export function MatchModal({ isOpen, onClose, onMessage, onUnlock, canChat = tru
         </motion.div>
       )}
     </AnimatePresence>
+    ,
+    document.body
   )
 }

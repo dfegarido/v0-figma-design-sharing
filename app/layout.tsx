@@ -2,6 +2,7 @@ import React from "react"
 import type { Metadata, Viewport } from 'next'
 import { DM_Sans, Space_Grotesk } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { Toaster } from 'sonner'
 import './globals.css'
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
@@ -32,6 +33,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${dmSans.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
         {children}
+        <Toaster richColors position="top-center" />
         <Analytics />
       </body>
     </html>

@@ -1,78 +1,113 @@
-"use client";
+"use client"
 
-import React from "react"
-
-import { useState } from "react";
-import { ScreenHeader } from "./screen-header";
-import { PageFooter } from "./page-footer";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState } from "react"
+import { Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { toast } from "sonner"
+import { AuthLayout } from "./auth/auth-layout"
+import { AuthFormField } from "./auth/auth-form-field"
+import { AuthPrimaryButton } from "./auth/auth-primary-button"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/context/auth-context"
 
 interface LoginScreenProps {
-  onBack: () => void;
-  onLogin: () => void;
+  onNavigateSignup: () => void
 }
 
-export function LoginScreen({ onBack, onLogin }: LoginScreenProps) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export function LoginScreen({ onNavigateSignup }: LoginScreenProps) {
+  const { startLoginTransition, endLoginTransition, cancelLoginTransition } = useAuth()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onLogin();
-  };
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      toast.error("Please enter your email and password")
+      return
+    }
+
+    startLoginTransition()
+    setLoading(true)
+
+    const minDelay = new Promise<void>((resolve) => setTimeout(resolve, 2000))
+    const loginPromise = supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password.trim(),
+    })
+
+    const [, { error }] = await Promise.all([minDelay, loginPromise])
+    setLoading(false)
+
+    if (error) {
+      cancelLoginTransition()
+      toast.error(error.message)
+      return
+    }
+
+    endLoginTransition()
+  }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <ScreenHeader onBack={onBack} />
+    <AuthLayout
+      title="Welcome Back"
+      subtitle="Continue your home swapping journey."
+      cardFooter={
+        <AuthPrimaryButton onClick={handleLogin} loading={loading} className="mt-2">
+          {loading ? "Logging in..." : "Log In"}
+        </AuthPrimaryButton>
+      }
+      footer={
+        <div className="flex justify-center gap-1 text-sm">
+          <span className="text-[#717171]">Don&apos;t have an account?</span>
+          <button
+            type="button"
+            onClick={onNavigateSignup}
+            className="font-medium text-[#FF5A5F] hover:underline"
+          >
+            Sign Up
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-6">
+        <AuthFormField
+          label="Email Address"
+          placeholder="you@example.com"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          leftIcon={<Mail className="h-5 w-5 text-[#717171]" />}
+        />
 
-      <div className="flex-1 flex flex-col px-6">
-        <h2 className="text-xl font-semibold text-center mb-8">Welcome Back!</h2>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-background border-foreground/30 h-12"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-sm">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="bg-background border-foreground/30 h-12"
-              required
-            />
-            <button type="button" className="text-sm text-muted-foreground hover:text-foreground">
-              Forgotten Password?
-            </button>
-          </div>
-
-          <div className="flex justify-center pt-4">
+        <AuthFormField
+          label="Password"
+          placeholder="Enter your password"
+          type={showPassword ? "text" : "password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          leftIcon={<Lock className="h-5 w-5 text-[#717171]" />}
+          rightIcon={
             <button
-              type="submit"
-              className="px-8 py-2 border-2 border-foreground rounded-lg hover:bg-foreground/5 transition-colors"
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="p-1 text-[#717171]"
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              Log In
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
-          </div>
-        </form>
-      </div>
+          }
+        />
 
-      <div className="text-center text-xs text-muted-foreground py-4">
-        © 2025 by Switch My House
+        <button
+          type="button"
+          className="ml-auto block text-sm font-medium text-[#FF5A5F] hover:underline"
+          onClick={() => toast.message("Password reset flow is on the way.")}
+        >
+          Forgot Password?
+        </button>
       </div>
-
-      <PageFooter />
-    </div>
-  );
+    </AuthLayout>
+  )
 }

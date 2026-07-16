@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { ScreenHeader } from "./screen-header";
 import { PageFooter } from "./page-footer";
 import { Input } from "@/components/ui/input";
@@ -14,10 +15,13 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import type { BuyerCriteria } from "./buyer-criteria-screen";
 import { defaultBuyerCriteria } from "./buyer-criteria-screen";
+import { completeSignup, type SignupCredentials } from "@/lib/signup";
+import { useAuth } from "@/context/auth-context";
 
 interface OnboardingFlowProps {
   onBack: () => void;
   onComplete: (criteria?: BuyerCriteria) => void;
+  signupCredentials?: SignupCredentials | null;
 }
 
 const STEPS = [
@@ -45,8 +49,10 @@ const featureChips = [
   "Smart Home", "Fireplace", "Pet Friendly", "Quiet Street",
 ];
 
-export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
+export function OnboardingFlow({ onBack, onComplete, signupCredentials }: OnboardingFlowProps) {
+  const { startSignupTransition, endSignupTransition, cancelSignupTransition } = useAuth();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -70,24 +76,73 @@ export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
     preferredFeatures: [] as string[],
   });
 
+  const buildCriteria = (): BuyerCriteria => ({
+    ...defaultBuyerCriteria,
+    suburbs: formData.preferredRegion ? [formData.preferredRegion] : [],
+    minPrice: formData.priceRange[0],
+    maxPrice: formData.priceRange[1],
+    minBeds: formData.minBedrooms ? parseInt(formData.minBedrooms) : 0,
+    minBaths: formData.minBathrooms ? parseInt(formData.minBathrooms) : 0,
+    minParking: formData.minCarBays ? parseInt(formData.minCarBays) : 0,
+    minLandSize: formData.preferredLandSize[0],
+    maxLandSize: formData.preferredLandSize[1],
+    propertyTypes: formData.preferredPropertyTypes as BuyerCriteria["propertyTypes"],
+    features: formData.preferredFeatures,
+  });
+
+  const handleFinish = async () => {
+    const criteria = buildCriteria();
+
+    if (!signupCredentials) {
+      onComplete(criteria);
+      return;
+    }
+
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast.error("Please fill in your first and last name.");
+      return;
+    }
+
+    startSignupTransition();
+    setLoading(true);
+
+    const minDelay = new Promise<void>((resolve) => setTimeout(resolve, 2000));
+    const signupPromise = completeSignup(signupCredentials, {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      address: formData.address,
+      ownsHome: formData.ownsHome,
+      regionSuburb: formData.preferredRegion,
+      minBedrooms: formData.minBedrooms,
+      minBathrooms: formData.minBathrooms,
+      minCarBays: formData.minCarBays,
+      minSqm2: formData.minSqm2,
+      costLow: formData.priceRange[0],
+      costHigh: formData.priceRange[1],
+      propertyTypes: formData.preferredPropertyTypes,
+      landSizeLow: formData.preferredLandSize[0],
+      landSizeHigh: formData.preferredLandSize[1],
+      features: formData.preferredFeatures,
+    });
+
+    const [, result] = await Promise.all([minDelay, signupPromise]);
+    setLoading(false);
+
+    if (result.error) {
+      cancelSignupTransition();
+      toast.error(result.error.message);
+      return;
+    }
+
+    onComplete(criteria);
+    endSignupTransition();
+  };
+
   const handleNext = () => {
     if (step < 8) {
       setStep(step + 1);
     } else {
-      const criteria: BuyerCriteria = {
-        ...defaultBuyerCriteria,
-        suburbs: formData.preferredRegion ? [formData.preferredRegion] : [],
-        minPrice: formData.priceRange[0],
-        maxPrice: formData.priceRange[1],
-        minBeds: formData.minBedrooms ? parseInt(formData.minBedrooms) : 0,
-        minBaths: formData.minBathrooms ? parseInt(formData.minBathrooms) : 0,
-        minParking: formData.minCarBays ? parseInt(formData.minCarBays) : 0,
-        minLandSize: formData.preferredLandSize[0],
-        maxLandSize: formData.preferredLandSize[1],
-        propertyTypes: formData.preferredPropertyTypes as BuyerCriteria["propertyTypes"],
-        features: formData.preferredFeatures,
-      };
-      onComplete(criteria);
+      void handleFinish();
     }
   };
 
@@ -584,9 +639,16 @@ export function OnboardingFlow({ onBack, onComplete }: OnboardingFlowProps) {
           )}
           <button
             onClick={handleNext}
-            className="px-6 py-2 border-2 border-foreground rounded-lg hover:bg-foreground/5 transition-colors"
+            disabled={loading}
+            className="px-6 py-2 border-2 border-foreground rounded-lg hover:bg-foreground/5 transition-colors disabled:opacity-50"
           >
-            Next
+            {loading
+              ? step === 8
+                ? "Creating Account..."
+                : "Please wait..."
+              : step === 8
+                ? "Finish"
+                : "Next"}
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -39,7 +39,7 @@ export const defaultBuyerCriteria: BuyerCriteria = {
 interface BuyerCriteriaScreenProps {
   onBack: () => void
   criteria: BuyerCriteria
-  onSave: (criteria: BuyerCriteria) => void
+  onSave: (criteria: BuyerCriteria) => void | Promise<void>
 }
 
 const propertyTypeOptions: PropertyType[] = ["House", "Apartment", "Townhouse", "Unit", "Land"]
@@ -77,6 +77,11 @@ const parkingOptions = [
 export function BuyerCriteriaScreen({ onBack, criteria, onSave }: BuyerCriteriaScreenProps) {
   const [local, setLocal] = useState<BuyerCriteria>(criteria)
   const [suburbInput, setSuburbInput] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setLocal(criteria)
+  }, [criteria])
 
   const addSuburb = () => {
     const trimmed = suburbInput.trim()
@@ -111,9 +116,14 @@ export function BuyerCriteriaScreen({ onBack, criteria, onSave }: BuyerCriteriaS
     return `$${(value / 1000).toFixed(0)}K`
   }
 
-  const handleSave = () => {
-    onSave(local)
-    onBack()
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await onSave(local)
+      onBack()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -294,8 +304,8 @@ export function BuyerCriteriaScreen({ onBack, criteria, onSave }: BuyerCriteriaS
 
       {/* Save Button */}
       <div className="flex-shrink-0 p-4 border-t border-border">
-        <Button onClick={handleSave} className="w-full rounded-xl h-12 text-base font-medium">
-          Save Criteria
+        <Button onClick={handleSave} disabled={saving} className="w-full rounded-xl h-12 text-base font-medium">
+          {saving ? "Saving..." : "Save Criteria"}
         </Button>
       </div>
     </div>

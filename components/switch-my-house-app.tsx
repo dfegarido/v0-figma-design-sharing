@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
+import { toast } from "sonner"
 import { AppHeader } from "./app-header"
 import { BottomNav } from "./bottom-nav"
 import { SwipeFeed } from "./swipe-feed"
@@ -11,14 +12,12 @@ import { SearchScreen } from "./search-screen"
 import { AddPropertyScreen } from "./add-property-screen"
 import { PrivacyScreen } from "./privacy-screen"
 import { PremiumScreen } from "./premium-screen"
-import type { PremiumPlan } from "./premium-screen"
 import { HelpCenterScreen } from "./help-center-screen"
 import { NotificationsScreen } from "./notifications-screen"
 import { ChatDetailScreen } from "./chat-detail-screen"
 import { MatchesScreen } from "./matches-screen"
 import { LikedScreen } from "./liked-screen"
-import { BuyerCriteriaScreen, defaultBuyerCriteria } from "./buyer-criteria-screen"
-import type { BuyerCriteria } from "./buyer-criteria-screen"
+import { BuyerCriteriaScreen } from "./buyer-criteria-screen"
 import { VerificationScreen } from "./verification-screen"
 import type { VerificationStatus } from "./verification-screen"
 import { UnlockChatScreen } from "./unlock-chat-screen"
@@ -26,32 +25,40 @@ import { PropertyDetailScreen } from "./property-detail-screen"
 import { TestingScreen } from "./testing-screen"
 import { OnboardingFlow } from "./onboarding-flow"
 import type { Property } from "./property-card"
+import { useUserData } from "@/context/user-data-context"
 
 type Tab = "discover" | "search" | "add" | "messages" | "profile"
 type Screen = Tab | "privacy" | "premium" | "help" | "notifications" | "chat" | "matches" | "liked" | "criteria" | "verification" | "unlock" | "property-detail" | "testing" | "onboarding"
 
 export function SwitchMyHouseApp() {
+  const {
+    profile,
+    buyerCriteria,
+    verificationStatus: profileVerificationStatus,
+    isPremium,
+    premiumPlan,
+    notificationCount,
+    messageCount,
+    setBuyerCriteria,
+    saveBuyerCriteria,
+    refresh,
+  } = useUserData()
+
   const [activeTab, setActiveTab] = useState<Tab>("discover")
   const [activeScreen, setActiveScreen] = useState<Screen>("discover")
   const [previousScreen, setPreviousScreen] = useState<Screen>("discover")
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
-  const [notificationCount] = useState(3)
-  const [messageCount] = useState(2)
-
-  // Buyer criteria state
-  const [buyerCriteria, setBuyerCriteria] = useState<BuyerCriteria>(defaultBuyerCriteria)
-
-  // Verification & unlock state
-  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified")
-  const [chatUnlocked, setChatUnlocked] = useState(false)
-
-  // Premium plan state
-  const [premiumPlan, setPremiumPlan] = useState<PremiumPlan>(null)
-
-  // Property detail state
+  const [freeUnlockedChatId, setFreeUnlockedChatId] = useState<string | null>(null)
+  const [verificationOverride, setVerificationOverride] = useState<VerificationStatus | null>(null)
   const [detailProperty, setDetailProperty] = useState<Property | null>(null)
 
-  const canChat = verificationStatus === "verified" && chatUnlocked
+  const verificationStatus = verificationOverride ?? profileVerificationStatus
+  const canChat = verificationStatus === "verified" || isPremium
+
+  // Premium users can chat freely; reset any free-tier single-slot unlock.
+  useEffect(() => {
+    if (isPremium) setFreeUnlockedChatId(null)
+  }, [isPremium])
 
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab)
@@ -96,7 +103,7 @@ export function SwitchMyHouseApp() {
     if (verificationStatus !== "verified") {
       setPreviousScreen(activeScreen)
       setActiveScreen("verification")
-    } else {
+    } else if (!isPremium) {
       setPreviousScreen(activeScreen)
       setActiveScreen("unlock")
     }
@@ -110,16 +117,13 @@ export function SwitchMyHouseApp() {
         return (
           <PremiumScreen
             onBack={handleBack}
-            isPremium={premiumPlan !== null}
+            isPremium={isPremium}
             activePlan={premiumPlan}
-            onSubscribe={(plan) => {
-              setPremiumPlan(plan)
-              setVerificationStatus("verified")
-              setChatUnlocked(true)
+            onSubscribe={() => {
+              toast.message("Premium checkout is not connected on web yet.")
             }}
             onCancel={() => {
-              setPremiumPlan(null)
-              setChatUnlocked(false)
+              toast.message("Manage subscription in the mobile app for now.")
             }}
           />
         )
@@ -144,7 +148,12 @@ export function SwitchMyHouseApp() {
           <BuyerCriteriaScreen
             onBack={handleBack}
             criteria={buyerCriteria}
-            onSave={(c) => setBuyerCriteria(c)}
+            onSave={async (criteria) => {
+              const saved = await saveBuyerCriteria(criteria)
+              if (!saved) {
+                toast.error("Failed to save your criteria.")
+              }
+            }}
           />
         )
       case "verification":
@@ -152,9 +161,9 @@ export function SwitchMyHouseApp() {
           <VerificationScreen
             onBack={handleBack}
             status={verificationStatus}
-            onStatusChange={(s) => {
-              setVerificationStatus(s)
-              if (s === "verified" && !chatUnlocked) {
+            onStatusChange={(status) => {
+              setVerificationOverride(status)
+              if (status === "verified" && !isPremium) {
                 setPreviousScreen("verification")
                 setActiveScreen("unlock")
               }
@@ -166,13 +175,13 @@ export function SwitchMyHouseApp() {
           <UnlockChatScreen
             onBack={handleBack}
             verificationStatus={verificationStatus}
-            chatUnlocked={chatUnlocked}
+            chatUnlocked={canChat}
             onNavigateVerification={() => {
               setPreviousScreen(activeScreen)
               setActiveScreen("verification")
             }}
             onUnlockChat={() => {
-              setChatUnlocked(true)
+              setVerificationOverride("verified")
             }}
           />
         )
@@ -195,26 +204,29 @@ export function SwitchMyHouseApp() {
               }
             }}
             verificationStatus={verificationStatus}
-            chatUnlocked={chatUnlocked}
-            onResetVerification={() => setVerificationStatus("unverified")}
-            onResetChat={() => setChatUnlocked(false)}
+            chatUnlocked={canChat}
+            onResetVerification={() => setVerificationOverride("unverified")}
+            onResetChat={() => setVerificationOverride("unverified")}
             onResetAll={() => {
-              setVerificationStatus("unverified")
-              setChatUnlocked(false)
-              setPremiumPlan(null)
-              setBuyerCriteria(defaultBuyerCriteria)
+              setVerificationOverride("unverified")
+              void refresh()
             }}
-            onSetVerification={(s) => setVerificationStatus(s as typeof verificationStatus)}
-            onSetChatUnlocked={(u) => setChatUnlocked(u)}
-            onSetPremiumPlan={(p) => setPremiumPlan(p)}
+            onSetVerification={(status) => setVerificationOverride(status as VerificationStatus)}
+            onSetChatUnlocked={() => setVerificationOverride("verified")}
+            onSetPremiumPlan={() => {
+              toast.message("Premium state comes from your Supabase profile.")
+            }}
           />
         )
       case "onboarding":
         return (
           <OnboardingFlow
             onBack={handleBack}
-            onComplete={(criteria) => {
-              if (criteria) setBuyerCriteria(criteria)
+            onComplete={async (criteria) => {
+              if (criteria) {
+                setBuyerCriteria(criteria)
+                await saveBuyerCriteria(criteria)
+              }
               handleTabChange("discover")
             }}
           />
@@ -228,6 +240,7 @@ export function SwitchMyHouseApp() {
             onNavigate={(screen) => handleTabChange(screen as Tab)}
             buyerCriteria={buyerCriteria}
             canChat={canChat}
+            isPremium={isPremium}
             onNavigateUnlock={handleNavigateUnlock}
           />
         )
@@ -240,22 +253,21 @@ export function SwitchMyHouseApp() {
           <MessagesScreen
             onOpenChat={handleOpenChat}
             verificationStatus={verificationStatus}
-            chatUnlocked={chatUnlocked}
             onNavigateUnlock={handleNavigateUnlock}
+            isPremium={isPremium}
+            freeUnlockedChatId={freeUnlockedChatId}
+            onUnlockChatSlot={(chatId) => setFreeUnlockedChatId(chatId)}
           />
         )
       case "profile":
-        return (
-          <ProfileScreen
-            onNavigate={handleNavigateToScreen}
-          />
-        )
+        return <ProfileScreen onNavigate={handleNavigateToScreen} />
       default:
         return (
           <SwipeFeed
             onNavigate={(screen) => handleTabChange(screen as Tab)}
             buyerCriteria={buyerCriteria}
             canChat={canChat}
+            isPremium={isPremium}
             onNavigateUnlock={handleNavigateUnlock}
           />
         )
@@ -269,6 +281,8 @@ export function SwitchMyHouseApp() {
       {showNavigation && (
         <AppHeader
           notificationCount={notificationCount}
+          avatarUrl={profile?.avatar_url}
+          userName={profile?.full_name}
           onProfileClick={() => handleTabChange("profile")}
           onNotificationsClick={() => handleNavigateToScreen("notifications")}
         />

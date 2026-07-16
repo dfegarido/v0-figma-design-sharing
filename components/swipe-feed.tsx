@@ -207,6 +207,7 @@ interface SwipeFeedProps {
   buyerCriteria?: BuyerCriteria | null
   canChat?: boolean
   onNavigateUnlock?: () => void
+  isPremium?: boolean
 }
 
 function applyScoresAndSort(properties: Property[], criteria: BuyerCriteria | null | undefined): Property[] {
@@ -216,7 +217,13 @@ function applyScoresAndSort(properties: Property[], criteria: BuyerCriteria | nu
     .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
 }
 
-export function SwipeFeed({ onNavigate, buyerCriteria, canChat = true, onNavigateUnlock }: SwipeFeedProps) {
+export function SwipeFeed({
+  onNavigate,
+  buyerCriteria,
+  canChat = true,
+  onNavigateUnlock,
+  isPremium = true,
+}: SwipeFeedProps) {
   const [properties, setProperties] = useState<Property[]>(() => applyScoresAndSort(sampleProperties, buyerCriteria))
   const [currentIndex, setCurrentIndex] = useState(0)
   const [history, setHistory] = useState<{ property: Property; action: string }[]>([])
@@ -300,12 +307,16 @@ export function SwipeFeed({ onNavigate, buyerCriteria, canChat = true, onNavigat
             {remainingCards} {remainingCards === 1 ? "home" : "homes"} left
           </span>
         </div>
-        <FilterSheet
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          onReset={handleResetFilters}
-          buyerCriteria={buyerCriteria}
-        />
+        {isPremium ? (
+          <FilterSheet
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onReset={handleResetFilters}
+            buyerCriteria={buyerCriteria}
+          />
+        ) : (
+          <div className="w-12" />
+        )}
       </div>
 
       {/* Cards stack */}
