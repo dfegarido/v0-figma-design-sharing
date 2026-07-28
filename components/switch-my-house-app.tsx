@@ -162,14 +162,6 @@ export function SwitchMyHouseApp() {
         return (
           <PremiumScreen
             onBack={handleBack}
-            isPremium={isPremium}
-            activePlan={premiumPlan}
-            onSubscribe={() => {
-              toast.message("Premium checkout is not connected on web yet.")
-            }}
-            onCancel={() => {
-              toast.message("Manage subscription in the mobile app for now.")
-            }}
           />
         )
       case "help":

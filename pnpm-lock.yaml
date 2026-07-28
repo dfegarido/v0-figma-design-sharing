@@ -95,6 +95,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: 1.1.6
         version: 1.1.6(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@revenuecat/purchases-js':
+        specifier: ^1.49.0
+        version: 1.49.0
       '@supabase/supabase-js':
         specifier: ^2.110.6
         version: 2.110.6
@@ -1288,6 +1291,9 @@ packages:
 
   '@radix-ui/rect@1.1.0':
     resolution: {integrity: sha512-A9+lCBZoaMJlVKcRBz2YByCG+Cp2t6nAnMnNba+XiWxnj6r4JUFqfsgwocMBZU9LPtdxC6wB56ySYpc7LQIoJg==}
+
+  '@revenuecat/purchases-js@1.49.0':
+    resolution: {integrity: sha512-zhdtem+O9MP0WCvKS97ALgzeaY0Uw9X6Vplr37kQzpMTw3jJDb3B53RYmweoaJfsa3Y8o/MheLH31Vtw4o1jrQ==}
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
@@ -4304,6 +4310,8 @@ snapshots:
       '@types/react-dom': 19.0.0
 
   '@radix-ui/rect@1.1.0': {}
+
+  '@revenuecat/purchases-js@1.49.0': {}
 
   '@rtsao/scc@1.1.0': {}
 

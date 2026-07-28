@@ -522,41 +522,58 @@ export function SwipeFeed({
 
 function DiscoverSkeleton() {
   return (
-    <div className="relative h-full w-full rounded-3xl bg-muted/30 shadow-xl overflow-hidden">
-      {/* Image skeleton */}
-      <div className="relative h-[58%] w-full">
-        <Skeleton className="absolute inset-0 rounded-none bg-muted" />
-        <div className="absolute top-4 left-4 right-4 flex justify-between">
-          <Skeleton className="h-6 w-20 rounded-md bg-muted-foreground/20" />
-          <Skeleton className="h-6 w-16 rounded-md bg-muted-foreground/20" />
+    <div className="flex flex-col h-full px-4 py-2">
+      <div className="relative flex-1 rounded-3xl bg-card shadow-xl overflow-hidden border border-border">
+        {/* Image skeleton */}
+        <div className="relative flex-1">
+          <Skeleton className="absolute inset-0 rounded-t-3xl bg-muted" />
+          <div className="absolute top-3 left-3 right-3 flex justify-between">
+            <Skeleton className="h-5 w-[70px] rounded-md bg-muted-foreground/20" />
+            <Skeleton className="h-5 w-[50px] rounded-md bg-muted-foreground/20" />
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+            <Skeleton className="h-1.5 w-6 rounded-full bg-white/50" />
+            <Skeleton className="h-1.5 w-1.5 rounded-full bg-white/30" />
+            <Skeleton className="h-1.5 w-1.5 rounded-full bg-white/30" />
+          </div>
         </div>
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-          <Skeleton className="h-1.5 w-6 rounded-full bg-muted-foreground/30" />
-          <Skeleton className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
-          <Skeleton className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
+
+        {/* Content skeleton */}
+        <div className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded-sm bg-muted-foreground/20" />
+            <Skeleton className="h-5 w-[120px] rounded-sm bg-muted-foreground/20" />
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl bg-secondary px-4 py-2">
+            <Skeleton className="h-3.5 w-[30px] rounded-sm bg-muted-foreground/20" />
+            <Skeleton className="h-3.5 w-[30px] rounded-sm bg-muted-foreground/20" />
+            <Skeleton className="h-3.5 w-[30px] rounded-sm bg-muted-foreground/20" />
+            <Skeleton className="h-3.5 w-[40px] rounded-sm bg-muted-foreground/20" />
+          </div>
+
+          <div className="flex gap-2">
+            <Skeleton className="h-[22px] w-[50px] rounded-md bg-muted-foreground/20" />
+            <Skeleton className="h-[22px] w-[70px] rounded-md bg-muted-foreground/20" />
+            <Skeleton className="h-[22px] w-[60px] rounded-md bg-muted-foreground/20" />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9 rounded-full bg-muted-foreground/20" />
+            <div className="flex-1">
+              <Skeleton className="h-3 w-20 rounded-sm bg-muted-foreground/20" />
+            </div>
+            <Skeleton className="h-4 w-4 rounded-sm bg-muted-foreground/20" />
+          </div>
         </div>
       </div>
 
-      {/* Content skeleton */}
-      <div className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-5 w-5 rounded bg-muted-foreground/20" />
-          <Skeleton className="h-5 w-32 rounded bg-muted-foreground/20" />
-        </div>
-        <Skeleton className="h-12 w-full rounded-2xl bg-muted-foreground/20" />
-        <div className="flex gap-2">
-          <Skeleton className="h-5 w-14 rounded-full bg-muted-foreground/20" />
-          <Skeleton className="h-5 w-20 rounded-full bg-muted-foreground/20" />
-          <Skeleton className="h-5 w-16 rounded-full bg-muted-foreground/20" />
-        </div>
-        <div className="flex items-center gap-2 pt-2">
-          <Skeleton className="h-9 w-9 rounded-full bg-muted-foreground/20" />
-          <div className="flex-1 space-y-1">
-            <Skeleton className="h-3 w-20 rounded bg-muted-foreground/20" />
-            <Skeleton className="h-3 w-24 rounded bg-muted-foreground/20" />
-          </div>
-          <Skeleton className="h-4 w-4 rounded bg-muted-foreground/20" />
-        </div>
+      {/* Action buttons skeleton */}
+      <div className="flex items-center justify-center gap-6 py-4">
+        <Skeleton className="h-11 w-11 rounded-full bg-muted-foreground/20" />
+        <Skeleton className="h-16 w-16 rounded-full bg-muted-foreground/20" />
+        <Skeleton className="h-16 w-16 rounded-full bg-muted-foreground/20" />
+        <Skeleton className="h-16 w-16 rounded-full bg-muted-foreground/20" />
       </div>
     </div>
   )

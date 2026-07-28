@@ -13,6 +13,7 @@ const nextConfig = {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
       process.env.NEXT_PUBLIC_SUPABASE_KEY ??
       process.env.EXPO_PUBLIC_SUPABASE_KEY,
+    NEXT_PUBLIC_REVENUECAT_WEB_API_KEY: process.env.NEXT_PUBLIC_REVENUECAT_WEB_API_KEY,
   },
 }
 
