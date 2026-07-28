@@ -1,8 +1,6 @@
 "use client"
 
-import React from "react"
-
-import { useState } from "react"
+import React, { useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,8 +18,12 @@ import {
   Plus,
   X,
   Check,
+  Loader2,
 } from "lucide-react"
 import { motion } from "framer-motion"
+import { toast } from "sonner"
+import { insertProperty } from "@/lib/properties"
+import { supabase } from "@/lib/supabase"
 
 interface AddPropertyScreenProps {
   onComplete?: () => void
@@ -29,6 +31,9 @@ interface AddPropertyScreenProps {
 
 export function AddPropertyScreen({ onComplete }: AddPropertyScreenProps) {
   const [images, setImages] = useState<string[]>([])
+  const [files, setFiles] = useState<File[]>([])
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     address: "",
     suburb: "",
@@ -42,24 +47,43 @@ export function AddPropertyScreen({ onComplete }: AddPropertyScreenProps) {
   const [step, setStep] = useState<"photos" | "details" | "preview">("photos")
 
   const handleImageUpload = () => {
-    // Simulating image upload with placeholder
-    const placeholders = [
-      "/houses/house-1.jpg",
-      "/houses/house-2.jpg",
-      "/houses/house-3.jpg",
-      "/houses/house-4.jpg",
-      "/houses/house-5.jpg",
-      "/houses/house-6.jpg",
-    ]
-    if (images.length < 6) {
-      const nextImage = placeholders.find((img) => !images.includes(img))
-      if (nextImage) setImages([...images, nextImage])
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || [])
+    if (!selected.length) return
+
+    const remainingSlots = 6 - images.length
+    const toAdd = selected.slice(0, remainingSlots)
+    const newPreviews = toAdd.map((file) => URL.createObjectURL(file))
+
+    setImages((prev) => [...prev, ...newPreviews])
+    setFiles((prev) => [...prev, ...toAdd])
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
   const removeImage = (index: number) => {
+    const url = images[index]
+    if (url?.startsWith("blob:")) {
+      URL.revokeObjectURL(url)
+    }
     setImages(images.filter((_, i) => i !== index))
+    setFiles(files.filter((_, i) => i !== index))
   }
+
+  React.useEffect(() => {
+    return () => {
+      images.forEach((url) => {
+        if (url.startsWith("blob:")) {
+          URL.revokeObjectURL(url)
+        }
+      })
+    }
+  }, [])
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -68,9 +92,40 @@ export function AddPropertyScreen({ onComplete }: AddPropertyScreenProps) {
     setFormData({ ...formData, [name]: value })
   }
 
-  const handleSubmit = () => {
-    // In a real app, this would submit the property
-    onComplete?.()
+  const handleSubmit = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      toast.error("You must be signed in to list a property.")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      await insertProperty(
+        user.id,
+        {
+          address: formData.address,
+          suburb: formData.suburb,
+          price: Number(formData.price.replace(/\D/g, "")),
+          property_type: "House",
+          bedrooms: Number(formData.bedrooms) || 0,
+          bathrooms: Number(formData.bathrooms) || 0,
+          parking: Number(formData.parking) || 0,
+          sqm: Number(formData.sqm) || undefined,
+          description: formData.description,
+        },
+        files
+      )
+      toast.success("Property listed successfully!")
+      onComplete?.()
+    } catch (error) {
+      console.error("Failed to list property:", error)
+      toast.error("Failed to list property. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const formatPrice = (value: string) => {
@@ -136,6 +191,14 @@ export function AddPropertyScreen({ onComplete }: AddPropertyScreenProps) {
             animate={{ opacity: 1, x: 0 }}
             className="space-y-4"
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
             <div className="grid grid-cols-3 gap-3">
               {images.map((image, index) => (
                 <div
@@ -425,8 +488,16 @@ export function AddPropertyScreen({ onComplete }: AddPropertyScreenProps) {
               >
                 Edit
               </Button>
-              <Button className="flex-1 h-12 rounded-xl" onClick={handleSubmit}>
-                <Plus className="w-4 h-4 mr-2" />
+              <Button
+                className="flex-1 h-12 rounded-xl"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
                 List Property
               </Button>
             </div>

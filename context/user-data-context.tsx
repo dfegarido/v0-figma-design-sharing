@@ -17,6 +17,7 @@ import {
   fetchProfileData,
   fetchUnreadMessageCount,
   fetchUnreadNotificationCount,
+  type LikedProperty,
   type ProfileData,
   type ProfileListing,
   type ProfileStats,
@@ -34,6 +35,7 @@ interface UserDataContextValue {
   profile: UserProfile | null
   stats: ProfileStats
   listings: ProfileListing[]
+  likedProperties: LikedProperty[]
   buyerCriteria: BuyerCriteria
   verificationStatus: VerificationStatus
   isPremium: boolean
@@ -53,6 +55,8 @@ const defaultStats: ProfileStats = {
   listings: 0,
 }
 
+const defaultLikedProperties: LikedProperty[] = []
+
 const UserDataContext = createContext<UserDataContextValue | null>(null)
 
 export function UserDataProvider({ children }: { children: ReactNode }) {
@@ -60,6 +64,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [stats, setStats] = useState<ProfileStats>(defaultStats)
   const [listings, setListings] = useState<ProfileListing[]>([])
+  const [likedProperties, setLikedProperties] = useState<LikedProperty[]>(defaultLikedProperties)
   const [buyerCriteria, setBuyerCriteriaState] = useState<BuyerCriteria>(defaultBuyerCriteria)
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified")
   const [isPremium, setIsPremium] = useState(false)
@@ -71,6 +76,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     setProfile(data.profile)
     setStats(data.stats)
     setListings(data.listings)
+    setLikedProperties(data.likedProperties)
     setVerificationStatus(data.profile?.verification_status ?? "unverified")
     setIsPremium(data.isPremium)
     setPremiumPlan(data.premiumPlan)
@@ -85,6 +91,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       setProfile(null)
       setStats(defaultStats)
       setListings([])
+      setLikedProperties(defaultLikedProperties)
       setBuyerCriteriaState(defaultBuyerCriteria)
       setVerificationStatus("unverified")
       setIsPremium(false)
@@ -152,6 +159,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
         profile,
         stats,
         listings,
+        likedProperties,
         buyerCriteria,
         verificationStatus,
         isPremium,

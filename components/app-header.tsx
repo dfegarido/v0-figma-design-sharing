@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { Bell, User, Home } from "lucide-react"
+import { Bell, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
@@ -31,12 +31,17 @@ export function AppHeader({
     <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-lg border-b border-border">
       <div className="flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
-            <Home className="w-5 h-5 text-card" />
+          <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-lg">
+            <Image
+              src="/app-icon.png"
+              alt="Switch My House"
+              fill
+              className="object-contain"
+            />
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground leading-none">Switch</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">MY HOUSE</p>
+            <p className="text-[10px] text-muted-foreground font-semibold tracking-[1px]">MY HOUSE</p>
           </div>
         </div>
 

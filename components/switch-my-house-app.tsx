@@ -17,6 +17,7 @@ import { NotificationsScreen } from "./notifications-screen"
 import { ChatDetailScreen } from "./chat-detail-screen"
 import { MatchesScreen } from "./matches-screen"
 import { LikedScreen } from "./liked-screen"
+import { MyListingsScreen } from "./my-listings-screen"
 import { BuyerCriteriaScreen } from "./buyer-criteria-screen"
 import { VerificationScreen } from "./verification-screen"
 import type { VerificationStatus } from "./verification-screen"
@@ -24,15 +25,22 @@ import { UnlockChatScreen } from "./unlock-chat-screen"
 import { PropertyDetailScreen } from "./property-detail-screen"
 import { TestingScreen } from "./testing-screen"
 import { OnboardingFlow } from "./onboarding-flow"
+import { EditPropertyScreen } from "./edit-property-screen"
+import { EditProfileScreen } from "./edit-profile-screen"
+import { UploadProfilePhotoScreen } from "./upload-profile-photo-screen"
 import type { Property } from "./property-card"
+import { Button } from "@/components/ui/button"
+import { ChevronLeft } from "lucide-react"
 import { useUserData } from "@/context/user-data-context"
 
 type Tab = "discover" | "search" | "add" | "messages" | "profile"
-type Screen = Tab | "privacy" | "premium" | "help" | "notifications" | "chat" | "matches" | "liked" | "criteria" | "verification" | "unlock" | "property-detail" | "testing" | "onboarding"
+type Screen = Tab | "privacy" | "premium" | "help" | "notifications" | "chat" | "matches" | "liked" | "criteria" | "verification" | "unlock" | "property-detail" | "testing" | "onboarding" | "edit-profile" | "upload-photo" | "my-listings" | "edit-property" | "public-profile"
 
 export function SwitchMyHouseApp() {
   const {
     profile,
+    listings,
+    likedProperties,
     buyerCriteria,
     verificationStatus: profileVerificationStatus,
     isPremium,
@@ -50,7 +58,8 @@ export function SwitchMyHouseApp() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [freeUnlockedChatId, setFreeUnlockedChatId] = useState<string | null>(null)
   const [verificationOverride, setVerificationOverride] = useState<VerificationStatus | null>(null)
-  const [detailProperty, setDetailProperty] = useState<Property | null>(null)
+  const [activePropertyId, setActivePropertyId] = useState<string | null>(null)
+  const [activeVerificationPropertyId, setActiveVerificationPropertyId] = useState<string | null>(null)
 
   const verificationStatus = verificationOverride ?? profileVerificationStatus
   const canChat = verificationStatus === "verified" || isPremium
@@ -76,15 +85,25 @@ export function SwitchMyHouseApp() {
     }
   }
 
+  const handleNavigateToEditProperty = (propertyId?: string) => {
+    setPreviousScreen(activeScreen)
+    if (propertyId) setActivePropertyId(propertyId)
+    setActiveScreen("edit-property")
+  }
+
   const handleBack = () => {
     if (activeScreen === "chat" && ["matches", "notifications"].includes(previousScreen)) {
       setActiveScreen(previousScreen)
     } else if (activeScreen === "property-detail") {
       setActiveScreen(previousScreen)
+    } else if (activeScreen === "public-profile") {
+      setActiveScreen(previousScreen)
     } else {
       setActiveScreen(activeTab)
     }
-    setActiveChatId(null)
+    if (activeScreen !== "property-detail" && activeScreen !== "public-profile") {
+      setActiveChatId(null)
+    }
   }
 
   const handleOpenChat = (chatId: string) => {
@@ -95,11 +114,37 @@ export function SwitchMyHouseApp() {
 
   const handleOpenPropertyDetail = (property: Property) => {
     setPreviousScreen(activeScreen)
-    setDetailProperty(property)
+    setActivePropertyId(property.id)
     setActiveScreen("property-detail")
   }
 
-  const handleNavigateUnlock = () => {
+  const handleOpenPropertyDetailById = (propertyId: string) => {
+    setPreviousScreen(activeScreen)
+    setActivePropertyId(propertyId)
+    setActiveScreen("property-detail")
+  }
+
+  const handleOpenChatFromNotification = (chatId: string, requiresPremium: boolean) => {
+    if (requiresPremium && !isPremium) {
+      setPreviousScreen(activeScreen)
+      setActiveScreen("premium")
+      return
+    }
+    setPreviousScreen(activeScreen)
+    setActiveChatId(chatId)
+    setActiveScreen("chat")
+  }
+
+  const handleOpenVerificationFromNotification = (propertyId?: string) => {
+    if (propertyId) setActiveVerificationPropertyId(propertyId)
+    setPreviousScreen(activeScreen)
+    setActiveScreen("verification")
+  }
+
+  const handleNavigateUnlock = (propertyId?: string) => {
+    if (propertyId) {
+      setActiveVerificationPropertyId(propertyId)
+    }
     if (verificationStatus !== "verified") {
       setPreviousScreen(activeScreen)
       setActiveScreen("verification")
@@ -133,16 +178,59 @@ export function SwitchMyHouseApp() {
         return (
           <NotificationsScreen
             onBack={handleBack}
-            onViewMessage={handleOpenChat}
-            onViewMatch={() => handleNavigateToScreen("matches")}
+            isPremium={isPremium}
+            onOpenChat={handleOpenChatFromNotification}
+            onOpenProperty={handleOpenPropertyDetailById}
+            onOpenMatches={() => handleNavigateToScreen("matches")}
+            onOpenVerification={handleOpenVerificationFromNotification}
+            onOpenPremium={() => handleNavigateToScreen("premium")}
           />
         )
       case "chat":
-        return <ChatDetailScreen chatId={activeChatId || "1"} onBack={handleBack} />
+        return (
+          <ChatDetailScreen
+            chatId={activeChatId || "1"}
+            onBack={handleBack}
+            onViewProperty={(propertyId) => {
+              setActivePropertyId(propertyId)
+              setPreviousScreen("chat")
+              setActiveScreen("property-detail")
+            }}
+            onViewProfile={(userId) => {
+              setPreviousScreen("chat")
+              setActiveScreen("public-profile")
+            }}
+          />
+        )
       case "matches":
-        return <MatchesScreen onBack={handleBack} onOpenChat={handleOpenChat} />
+        return (
+          <MatchesScreen
+            onBack={handleBack}
+            onOpenChat={handleOpenChat}
+            onOpenVerification={(propertyId) => {
+              if (propertyId) setActiveVerificationPropertyId(propertyId)
+              setPreviousScreen(activeScreen)
+              setActiveScreen("verification")
+            }}
+            onOpenPremium={() => {
+              setPreviousScreen(activeScreen)
+              setActiveScreen("premium")
+            }}
+          />
+        )
       case "liked":
-        return <LikedScreen onBack={handleBack} />
+        return (
+          <LikedScreen
+            onBack={handleBack}
+            onNavigate={(screen, propertyId) => {
+              if (screen === "property-detail" && propertyId) {
+                setActivePropertyId(propertyId)
+                setPreviousScreen(activeScreen)
+                setActiveScreen("property-detail")
+              }
+            }}
+          />
+        )
       case "criteria":
         return (
           <BuyerCriteriaScreen
@@ -159,6 +247,7 @@ export function SwitchMyHouseApp() {
       case "verification":
         return (
           <VerificationScreen
+            propertyId={activeVerificationPropertyId}
             onBack={handleBack}
             status={verificationStatus}
             onStatusChange={(status) => {
@@ -186,12 +275,23 @@ export function SwitchMyHouseApp() {
           />
         )
       case "property-detail":
-        return detailProperty ? (
+        return activePropertyId ? (
           <PropertyDetailScreen
-            property={detailProperty}
+            propertyId={activePropertyId}
             onBack={handleBack}
+            onEdit={(propertyId) => handleNavigateToEditProperty(propertyId)}
+            onMessage={(chatId) => handleOpenChat(chatId)}
           />
         ) : null
+      case "public-profile":
+        return (
+          <div className="flex h-full flex-col items-center justify-center bg-background p-6">
+            <Button variant="ghost" size="icon" onClick={handleBack} className="absolute left-4 top-4 rounded-full">
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <p className="text-muted-foreground">Public profile coming soon.</p>
+          </div>
+        )
       case "testing":
         return (
           <TestingScreen
@@ -218,6 +318,49 @@ export function SwitchMyHouseApp() {
             }}
           />
         )
+      case "edit-profile":
+        return <EditProfileScreen onBack={handleBack} />
+      case "upload-photo":
+        return <UploadProfilePhotoScreen onBack={handleBack} />
+      case "my-listings":
+        return (
+          <MyListingsScreen
+            onBack={handleBack}
+            onNavigate={(screen, propertyId) => {
+              if (screen === "property-detail" && propertyId) {
+                setActivePropertyId(propertyId)
+                setPreviousScreen(activeScreen)
+                setActiveScreen("property-detail")
+              } else if (screen === "edit-property" && propertyId) {
+                handleNavigateToEditProperty(propertyId)
+              } else if (screen === "premium") {
+                setPreviousScreen(activeScreen)
+                setActiveScreen("premium")
+              } else if (screen === "verification" && propertyId) {
+                setActiveVerificationPropertyId(propertyId)
+                setPreviousScreen(activeScreen)
+                setActiveScreen("verification")
+              }
+            }}
+          />
+        )
+      case "edit-property":
+        return activePropertyId ? (
+          <EditPropertyScreen
+            propertyId={activePropertyId}
+            onBack={handleBack}
+            onNavigate={(screen, propertyId) => {
+              if (screen === "premium") {
+                setPreviousScreen(activeScreen)
+                setActiveScreen("premium")
+              } else if (screen === "verification" && propertyId) {
+                setActiveVerificationPropertyId(propertyId)
+                setPreviousScreen(activeScreen)
+                setActiveScreen("verification")
+              }
+            }}
+          />
+        ) : null
       case "onboarding":
         return (
           <OnboardingFlow
@@ -237,7 +380,13 @@ export function SwitchMyHouseApp() {
       case "discover":
         return (
           <SwipeFeed
-            onNavigate={(screen) => handleTabChange(screen as Tab)}
+            onNavigate={(screen, chatId) => {
+              if (screen === "chat" && chatId) {
+                handleOpenChat(chatId)
+              } else {
+                handleTabChange(screen as Tab)
+              }
+            }}
             buyerCriteria={buyerCriteria}
             canChat={canChat}
             isPremium={isPremium}
@@ -245,18 +394,55 @@ export function SwitchMyHouseApp() {
           />
         )
       case "search":
-        return <SearchScreen />
+        return (
+          <SearchScreen
+            onOpenPropertyDetail={(property) => {
+              setPreviousScreen(activeScreen)
+              setActivePropertyId(property.id)
+              setActiveScreen("property-detail")
+            }}
+          />
+        )
       case "add":
         return <AddPropertyScreen onComplete={() => handleTabChange("discover")} />
       case "messages":
         return (
           <MessagesScreen
             onOpenChat={handleOpenChat}
-            verificationStatus={verificationStatus}
-            onNavigateUnlock={handleNavigateUnlock}
+            onNavigateToMatches={() => handleNavigateToScreen("matches")}
+            onNavigateToVerification={(propertyId) => {
+              if (propertyId) {
+                setActiveVerificationPropertyId(propertyId)
+              }
+              if (verificationStatus !== "verified") {
+                setPreviousScreen(activeScreen)
+                setActiveScreen("verification")
+              } else if (!isPremium) {
+                setPreviousScreen(activeScreen)
+                setActiveScreen("unlock")
+              }
+            }}
+            onNavigateToEditProperty={(propertyId) => {
+              if (propertyId) {
+                setActiveVerificationPropertyId(propertyId)
+                setPreviousScreen(activeScreen)
+                setActiveScreen("verification")
+              }
+            }}
+            onNavigateToUnlock={() => {
+              if (verificationStatus !== "verified") {
+                setPreviousScreen(activeScreen)
+                setActiveScreen("verification")
+              } else if (!isPremium) {
+                setPreviousScreen(activeScreen)
+                setActiveScreen("unlock")
+              }
+            }}
+            onNavigateToPremium={() => {
+              setPreviousScreen(activeScreen)
+              setActiveScreen("premium")
+            }}
             isPremium={isPremium}
-            freeUnlockedChatId={freeUnlockedChatId}
-            onUnlockChatSlot={(chatId) => setFreeUnlockedChatId(chatId)}
           />
         )
       case "profile":
@@ -274,7 +460,7 @@ export function SwitchMyHouseApp() {
     }
   }
 
-  const showNavigation = !["privacy", "premium", "help", "notifications", "chat", "matches", "liked", "criteria", "verification", "unlock", "property-detail", "testing", "onboarding"].includes(activeScreen)
+  const showNavigation = !["privacy", "premium", "help", "notifications", "chat", "matches", "liked", "criteria", "verification", "unlock", "property-detail", "public-profile", "testing", "onboarding", "edit-profile", "upload-photo", "my-listings", "edit-property"].includes(activeScreen)
 
   return (
     <div className="h-dvh bg-background flex flex-col max-w-lg mx-auto overflow-hidden">

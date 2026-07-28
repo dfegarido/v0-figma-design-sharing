@@ -1,262 +1,679 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Search, ArrowLeftRight, CheckCheck, Lock } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Search,
+  HelpCircle,
+  Lock,
+  MapPin,
+  Check,
+  Star,
+  ShieldCheck,
+  Crown,
+  Loader2,
+  Gem,
+} from "lucide-react"
 import { motion } from "framer-motion"
-import type { VerificationStatus } from "./verification-screen"
-import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { supabase } from "@/lib/supabase"
+import { getCache, setCache, CACHE_KEYS } from "@/lib/cache"
+import {
+  fetchConversationList,
+  type ConversationWithDetails,
+  firstImageUrl,
+  timeAgo,
+} from "@/lib/matches"
+import { ChatSkeleton } from "@/components/ui/chat-skeleton"
+import { ConversationSkeleton } from "@/components/ui/conversation-skeleton"
+import { NewMatchSkeleton } from "@/components/ui/new-match-skeleton"
 
 interface MessagesScreenProps {
   onOpenChat: (chatId: string) => void
-  verificationStatus?: VerificationStatus
-  onNavigateUnlock?: () => void
+  onNavigateToMatches?: () => void
+  onNavigateToVerification?: (propertyId?: string) => void
+  onNavigateToEditProperty?: (propertyId?: string) => void
+  onNavigateToUnlock?: () => void
+  onNavigateToPremium?: () => void
   isPremium?: boolean
-  freeUnlockedChatId?: string | null
-  onUnlockChatSlot?: (chatId: string) => void
 }
 
-interface Match {
-  id: string
-  name: string
-  avatar: string
-  houseImage: string
-  lastMessage: string
-  timestamp: string
-  unread: boolean
-  priceDiff: number
-  isNew?: boolean
+function LikeInfoDialog({
+  open,
+  onClose,
+}: {
+  open: boolean
+  onClose: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden">
+        <div className="p-6">
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <DialogTitle className="text-xl font-bold">Likes vs Super Likes</DialogTitle>
+          </DialogHeader>
+        </div>
+        <div className="px-6 pb-6 space-y-5">
+          <InfoRow
+            icon={<Check className="h-4 w-4 text-green-500" />}
+            title="Like"
+            bullets={[
+              "Shows standard interest in swapping homes",
+              "Appears in your matches",
+              "Start chatting after a mutual match",
+            ]}
+            color="bg-green-500/10"
+          />
+          <InfoRow
+            icon={<Star className="h-4 w-4 text-amber-500" fill="currentColor" />}
+            title="Super Like"
+            bullets={[
+              "Shows stronger interest",
+              "Highlighted and gets noticed immediately",
+              "Stand out from other matches",
+            ]}
+            color="bg-amber-500/10"
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
-const sampleMatches: Match[] = [
-  {
-    id: "1",
-    name: "Sarah Mitchell",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop",
-    houseImage: "/houses/house-1.jpg",
-    lastMessage: "I'd love to schedule a video tour of your place!",
-    timestamp: "2m ago",
-    unread: true,
-    priceDiff: 1500000,
-    isNew: true,
-  },
-  {
-    id: "2",
-    name: "James Chen",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-    houseImage: "/houses/house-2.jpg",
-    lastMessage: "The neighborhood is really quiet, perfect for families",
-    timestamp: "1h ago",
-    unread: true,
-    priceDiff: -150000,
-  },
-  {
-    id: "3",
-    name: "Emma Rodriguez",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop",
-    houseImage: "/houses/house-3.jpg",
-    lastMessage: "Let me know when you're free to chat!",
-    timestamp: "3h ago",
-    unread: false,
-    priceDiff: 200000,
-  },
-  {
-    id: "4",
-    name: "Michael Torres",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop",
-    houseImage: "/houses/house-4.jpg",
-    lastMessage: "Sounds great! Looking forward to it.",
-    timestamp: "1d ago",
-    unread: false,
-    priceDiff: 2200000,
-  },
-]
+function InfoRow({
+  icon,
+  title,
+  bullets,
+  color,
+}: {
+  icon: React.ReactNode
+  title: string
+  bullets: string[]
+  color: string
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${color}`}>
+        {icon}
+      </div>
+      <div className="flex-1">
+        <p className="font-semibold text-foreground">{title}</p>
+        <ul className="mt-1 space-y-1">
+          {bullets.map((b) => (
+            <li key={b} className="flex items-start gap-2 text-sm text-muted-foreground">
+              <span className="w-1 h-1 rounded-full bg-muted-foreground mt-2 shrink-0" />
+              {b}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+function LockedChatModal({
+  open,
+  conversation,
+  verifiedPropertyCount,
+  isPremium,
+  onClose,
+  onVerify,
+  onUpgrade,
+}: {
+  open: boolean
+  conversation: ConversationWithDetails | null
+  verifiedPropertyCount: number
+  isPremium?: boolean
+  onClose: () => void
+  onVerify: () => void
+  onUpgrade: () => void
+}) {
+  if (!conversation) return null
+  const canVerify = isPremium || verifiedPropertyCount === 0
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm rounded-3xl p-0 overflow-hidden">
+        <div className="p-6 text-center">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <Lock className="h-10 w-10 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Unlock Messaging</h2>
+          <p className="text-sm text-muted-foreground">
+            {canVerify
+              ? "Verify the property in this match to start chatting, or upgrade to Premium to unlock all messages."
+              : "Upgrade to Premium to start chatting and unlock unlimited messaging."}
+          </p>
+        </div>
+        <div className="px-6 pb-2 space-y-3">
+          {canVerify && (
+            <div className="flex items-start gap-4 p-4 rounded-2xl bg-secondary/50">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <ShieldCheck className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-semibold text-foreground">Verify Property</p>
+                <p className="text-sm text-muted-foreground">
+                  Verify your property for this match to unlock chat.
+                </p>
+              </div>
+            </div>
+          )}
+          <div className="flex items-start gap-4 p-4 rounded-2xl bg-secondary/50">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+              <Crown className="h-6 w-6 text-amber-500" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-semibold text-foreground">Upgrade to Premium</p>
+              <p className="text-sm text-muted-foreground">
+                Unlimited messaging and more.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6 space-y-3">
+          {canVerify && (
+            <Button onClick={onVerify} className="w-full rounded-xl h-14 text-base font-semibold">
+              <ShieldCheck className="h-5 w-5 mr-2" />
+              Verify Property
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={onUpgrade}
+            className="w-full rounded-xl h-14 text-base font-semibold border-primary text-primary hover:bg-primary/5"
+          >
+            <Crown className="h-5 w-5 mr-2" />
+            Upgrade to Premium
+          </Button>
+          <button
+            onClick={onClose}
+            className="w-full py-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Maybe Later
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SectionHeader({
+  title,
+  action,
+  onAction,
+}: {
+  title: string
+  action?: string
+  onAction?: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 mb-3">
+      <h3 className="text-lg font-bold text-foreground">{title}</h3>
+      {action && (
+        <button
+          onClick={onAction}
+          className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+        >
+          {action}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function NewMatchAvatar({
+  conversation,
+  index,
+  onPress,
+}: {
+  conversation: ConversationWithDetails
+  index: number
+  onPress: () => void
+}) {
+  const isSuperLike = conversation.matchType === "superlike"
+  const name = conversation.other_user?.full_name?.split(" ")[0] || "Unknown"
+  const avatar = conversation.other_user?.avatar_url || "/placeholder.svg"
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: index * 0.07, duration: 0.36 }}
+      onClick={onPress}
+      className="flex flex-col items-center gap-2 min-w-[78px]"
+    >
+      <div className="relative w-[67px] h-[67px]">
+        {isSuperLike ? (
+          <div className="absolute inset-0 rounded-full p-[2.5px] bg-gradient-to-br from-amber-400 to-orange-500">
+            <div className="w-full h-full rounded-full bg-card overflow-hidden border-2 border-card">
+              <Image src={avatar} alt={name} width={62} height={62} className="object-cover w-full h-full" />
+            </div>
+          </div>
+        ) : (
+          <div className="absolute inset-0 rounded-full p-[2.5px] border-2 border-border">
+            <div className="w-full h-full rounded-full bg-card overflow-hidden">
+              <Image src={avatar} alt={name} width={62} height={62} className="object-cover w-full h-full" />
+            </div>
+          </div>
+        )}
+        <div
+          className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center border-2 border-card ${
+            isSuperLike ? "bg-amber-500" : "bg-green-500"
+          }`}
+        >
+          {isSuperLike ? (
+            <Gem className="h-3 w-3 text-white" />
+          ) : (
+            <Check className="h-3 w-3 text-white" />
+          )}
+        </div>
+      </div>
+      <span className="text-xs font-semibold text-foreground text-center truncate w-[70px]">
+        {name}
+      </span>
+    </motion.button>
+  )
+}
+
+function NewMatchesLoading() {
+  return (
+    <div className="px-4">
+      <SectionHeader title="New Matches" action="View all" />
+      <div className="flex gap-3 overflow-x-auto pb-2 pl-4">
+        {[0, 1, 2].map((i) => (
+          <NewMatchSkeleton key={i} index={i} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ConversationCard({
+  conversation,
+  index,
+  onPress,
+}: {
+  conversation: ConversationWithDetails
+  index: number
+  onPress: () => void
+}) {
+  const name = conversation.other_user?.full_name?.split(" ")[0] || "Unknown"
+  const avatar = conversation.other_user?.avatar_url || "/placeholder.svg"
+  const houseImage = firstImageUrl(conversation.other_property?.property_images)
+  const suburb = conversation.other_property?.suburb || "Unknown suburb"
+  const isUnread = conversation.unread_count > 0 && !conversation.locked
+  const time = conversation.last_message_at ? timeAgo(conversation.last_message_at) : ""
+
+  const lockedPreview = conversation.locked
+    ? "Upgrade to Premium to unlock this conversation."
+    : "Verify your property to start chatting."
+  const preview = conversation.locked
+    ? lockedPreview
+    : conversation.last_message?.trim() || "Start chatting"
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.35 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onPress}
+      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-card shadow-sm hover:shadow-md transition-shadow text-left"
+      style={{ opacity: conversation.locked ? 0.72 : 1 }}
+    >
+      <div className="relative w-12 h-12 shrink-0">
+        <div className="w-12 h-12 rounded-full overflow-hidden">
+          <Image src={avatar} alt={name} width={48} height={48} className="object-cover w-full h-full" />
+        </div>
+        <div className="absolute -bottom-1 -right-1 w-[22px] h-[22px] rounded-full overflow-hidden border-2 border-card bg-card shadow-sm">
+          <Image src={houseImage} alt="House" width={22} height={22} className="object-cover w-full h-full" />
+        </div>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="font-bold text-base text-foreground">{name}</span>
+          {conversation.locked ? (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 gap-1 bg-secondary">
+              <Lock className="h-3 w-3" />
+              Locked
+            </Badge>
+          ) : conversation.matchType === "superlike" ? (
+            <Badge className="text-[10px] px-1.5 py-0 h-5 gap-1 bg-amber-500 text-white border-amber-500">
+              <Star className="h-3 w-3" fill="currentColor" />
+              Super
+            </Badge>
+          ) : conversation.matchType === "like" ? (
+            <Badge className="text-[10px] px-1.5 py-0 h-5 gap-1 bg-green-500 text-white border-green-500">
+              <Check className="h-3 w-3" />
+              Like
+            </Badge>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-1 text-muted-foreground mb-0.5">
+          <MapPin className="h-3 w-3" />
+          <span className="text-xs">{suburb}</span>
+        </div>
+        <p
+          className={`text-sm truncate ${
+            isUnread ? "text-foreground font-medium" : "text-muted-foreground"
+          }`}
+        >
+          {preview}
+        </p>
+      </div>
+
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        <span className="text-xs text-muted-foreground">{time}</span>
+        {isUnread && (
+          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+            {conversation.unread_count > 99 ? "99+" : conversation.unread_count}
+          </span>
+        )}
+      </div>
+    </motion.button>
+  )
+}
+
+function EmptyConversations() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+      <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-4">
+        <Search className="h-10 w-10 text-muted-foreground" />
+      </div>
+      <h3 className="text-lg font-bold text-foreground mb-1">No conversations yet</h3>
+      <p className="text-sm text-muted-foreground max-w-[280px]">
+        Start chatting with one of your matches.
+      </p>
+    </div>
+  )
+}
 
 export function MessagesScreen({
   onOpenChat,
-  verificationStatus = "verified",
-  onNavigateUnlock,
+  onNavigateToMatches,
+  onNavigateToVerification,
+  onNavigateToEditProperty,
+  onNavigateToUnlock,
+  onNavigateToPremium,
   isPremium = false,
-  freeUnlockedChatId = null,
-  onUnlockChatSlot,
 }: MessagesScreenProps) {
-  const chatEnabled = verificationStatus === "verified" || isPremium
-
-  const canOpenChat = (matchId: string) => {
-    if (!chatEnabled) return false
-    if (isPremium) return true
-    return freeUnlockedChatId === null || freeUnlockedChatId === matchId
-  }
-
-  const handleChatClick = (matchId: string) => {
-    if (canOpenChat(matchId)) {
-      if (!isPremium && freeUnlockedChatId === null) {
-        onUnlockChatSlot?.(matchId)
-      }
-      onOpenChat(matchId)
-      return
-    }
-
-    if (!isPremium) {
-      toast.message("Free accounts can only chat with 1 user at a time.")
-      return
-    }
-
-    onNavigateUnlock?.()
-  }
+  const [conversations, setConversations] = useState<ConversationWithDetails[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [lockedConversation, setLockedConversation] = useState<ConversationWithDetails | null>(null)
+  const [verifiedPropertyCount, setVerifiedPropertyCount] = useState(0)
 
-  const filteredMatches = sampleMatches.filter((match) =>
-    match.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    setError(null)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError("You must be signed in to view messages.")
+        return
+      }
 
-  const newMatches = filteredMatches.filter((m) => m.isNew)
-  const conversations = filteredMatches.filter((m) => !m.isNew)
+      const cacheKey = `${CACHE_KEYS.CONVERSATIONS}_${user.id}`
+      const cached = getCache<{
+        conversations: ConversationWithDetails[]
+        verifiedPropertyCount: number
+      }>(cacheKey)
 
-  const formatPriceDiff = (diff: number) => {
-    const absDiff = Math.abs(diff)
-    if (absDiff >= 1000000) {
-      return `${diff > 0 ? "+" : "-"}$${(absDiff / 1000000).toFixed(1)}M`
+      if (cached && !silent) {
+        setConversations(cached.conversations)
+        setVerifiedPropertyCount(cached.verifiedPropertyCount)
+        setLoading(false)
+      }
+
+      const result = await fetchConversationList(user.id)
+      setConversations(result.conversations)
+      setVerifiedPropertyCount(result.verifiedPropertyCount)
+      setCache(cacheKey, result)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load messages."
+      console.error("Failed to load conversations:", err)
+      setError(message)
+    } finally {
+      if (!silent) setLoading(false)
+      setRefreshing(false)
     }
-    return `${diff > 0 ? "+" : "-"}$${(absDiff / 1000).toFixed(0)}K`
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      await load()
+      if (cancelled) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const unsub = subscribeToConversationChanges(user.id, () => load(true))
+      return unsub
+    }
+    let unsub: (() => void) | undefined
+    run().then((u) => {
+      unsub = u
+    })
+    return () => {
+      cancelled = true
+      unsub?.()
+    }
+  }, [load])
+
+  const refresh = useCallback(() => {
+    setRefreshing(true)
+    void load(true)
+  }, [load])
+
+  const filtered = conversations.filter((match) => {
+    const query = searchQuery.toLowerCase()
+    const name = (match.other_user?.full_name || "").toLowerCase()
+    const suburb = (match.other_property?.suburb || "").toLowerCase()
+    return name.includes(query) || suburb.includes(query)
+  })
+
+  const activeConversations = filtered
+    .filter((m) => m.last_message_at != null || m.last_message != null)
+    .sort(
+      (a, b) =>
+        new Date(b.last_message_at || 0).getTime() -
+        new Date(a.last_message_at || 0).getTime()
+    )
+
+  const newMatches = filtered
+    .filter((m) => m.last_message_at == null && m.last_message == null)
+    .slice()
+    .sort((a, b) => {
+      const aIsSuperLike = a.matchType === "superlike"
+      const bIsSuperLike = b.matchType === "superlike"
+      if (aIsSuperLike && !bIsSuperLike) return -1
+      if (!aIsSuperLike && bIsSuperLike) return 1
+      return (
+        new Date(b.matchDate || 0).getTime() - new Date(a.matchDate || 0).getTime()
+      )
+    })
+
+  const handleConversationPress = (conversation: ConversationWithDetails) => {
+    if (conversation.locked) {
+      setLockedConversation(conversation)
+    } else {
+      onOpenChat(conversation.id)
+    }
+  }
+
+  const handleVerify = () => {
+    setLockedConversation(null)
+    const propertyId = lockedConversation?.my_property?.id
+    if (propertyId && onNavigateToVerification) {
+      onNavigateToVerification(propertyId)
+    } else if (propertyId && onNavigateToEditProperty) {
+      onNavigateToEditProperty(propertyId)
+    } else {
+      onNavigateToUnlock?.()
+    }
+  }
+
+  const handleUpgrade = () => {
+    setLockedConversation(null)
+    onNavigateToPremium?.()
   }
 
   return (
-    <div className="h-full overflow-auto pb-4">
-      {/* Header */}
-      <div className="sticky top-0 bg-card/95 backdrop-blur-lg px-4 py-4 border-b border-border">
-        <h2 className="text-xl font-bold text-foreground mb-4">Messages</h2>
+    <div className="h-full overflow-y-auto pb-6 bg-[#F8F8FA]">
+      <div className="px-4 pt-6 pb-4">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-[28px] font-bold text-foreground tracking-tight">Messages</h2>
+          <button
+            onClick={() => setInfoOpen(true)}
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-secondary transition-colors"
+            aria-label="Learn about Likes and Super Likes"
+          >
+            <HelpCircle className="h-6 w-6 text-primary" />
+          </button>
+        </div>
+        <p className="text-base text-muted-foreground">
+          Chat with buyers and sellers interested in your properties.
+        </p>
+      </div>
+
+      <div className="px-4 mb-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
-            placeholder="Search matches..."
+            placeholder="Search matches or conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-12 pl-10 rounded-xl bg-secondary border-0"
+            className="h-12 pl-11 rounded-full bg-card border-0 shadow-sm text-base"
+            aria-label="Search matches or conversations"
           />
         </div>
       </div>
 
-      {/* New Matches */}
-      {newMatches.length > 0 && (
-        <div className="px-4 py-4">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-3">New Matches</h3>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {newMatches.map((match) => (
-              <motion.button
-                key={match.id}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="flex flex-col items-center gap-2 flex-shrink-0"
-                onClick={() => handleChatClick(match.id)}
-              >
-                <div className="relative">
-                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary">
-                    <Image
-                      src={match.avatar || "/placeholder.svg"}
-                      alt={match.name}
-                      width={64}
-                      height={64}
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                    <ArrowLeftRight className="w-3 h-3 text-primary-foreground" />
-                  </div>
-                </div>
-                <span className="text-xs font-medium text-foreground max-w-16 truncate">
-                  {match.name.split(" ")[0]}
-                </span>
-              </motion.button>
-            ))}
-          </div>
+      {refreshing && (
+        <div className="flex items-center justify-center py-2">
+          <Loader2 className="h-5 w-5 text-primary animate-spin" />
         </div>
       )}
 
-      {/* Conversations */}
-      <div className="px-4">
-        <h3 className="text-sm font-semibold text-muted-foreground mb-3">Conversations</h3>
-        <div className="space-y-2">
-          {conversations.map((match, index) => (
-            <motion.button
-              key={match.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-secondary transition-colors text-left relative"
-              onClick={() => handleChatClick(match.id)}
-            >
-              {/* Avatar and house preview */}
-              <div className="relative flex-shrink-0">
-                <div className="w-14 h-14 rounded-full overflow-hidden">
-                  <Image
-                    src={match.avatar || "/placeholder.svg"}
-                    alt={match.name}
-                    width={56}
-                    height={56}
-                    className="object-cover"
-                  />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-md overflow-hidden border-2 border-card">
-                  <Image
-                    src={match.houseImage || "/placeholder.svg"}
-                    alt="House"
-                    width={24}
-                    height={24}
-                    className="object-cover"
-                  />
-                </div>
-              </div>
+      <div className="space-y-6">
+        {loading ? (
+          <NewMatchesLoading />
+        ) : newMatches.length > 0 ? (
+          <div className="px-4">
+            <SectionHeader title="New Matches" action="View all" onAction={onNavigateToMatches} />
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+              {newMatches.map((match, i) => (
+                <NewMatchAvatar
+                  key={match.id}
+                  conversation={match}
+                  index={i}
+                  onPress={() => handleConversationPress(match)}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`font-semibold ${match.unread ? "text-foreground" : "text-foreground/80"}`}>
-                    {match.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{match.timestamp}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className={`text-sm truncate ${match.unread ? "text-foreground font-medium" : "text-muted-foreground"}`}>
-                    {match.lastMessage}
-                  </p>
-                  {match.unread ? (
-                    <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0 h-4 ml-2">
-                      New
-                    </Badge>
-                  ) : (
-                    <CheckCheck className="w-4 h-4 text-chart-1 ml-2 flex-shrink-0" />
-                  )}
-                </div>
-              </div>
-              {!canOpenChat(match.id) && (
-                <div className="absolute inset-0 rounded-2xl bg-card/60 backdrop-blur-[1px] flex items-center justify-center">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Lock className="h-4 w-4" />
-                    <span className="text-xs font-medium">Locked</span>
-                  </div>
-                </div>
-              )}
-            </motion.button>
-          ))}
+        <div>
+          <SectionHeader title="Conversations" />
+          <div className="px-4 space-y-2">
+            {error ? (
+              <p className="text-center text-destructive py-8">{error}</p>
+            ) : loading ? (
+              <>
+                {[0, 1, 2, 3].map((i) => (
+                  <ConversationSkeleton key={i} index={i} />
+                ))}
+              </>
+            ) : activeConversations.length === 0 ? (
+              <EmptyConversations />
+            ) : (
+              activeConversations.map((match, i) => (
+                <ConversationCard
+                  key={match.id}
+                  conversation={match}
+                  index={i}
+                  onPress={() => handleConversationPress(match)}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Empty state */}
-      {filteredMatches.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-64 text-center px-8">
-          <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-            <ArrowLeftRight className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <h3 className="font-semibold text-foreground mb-1">No matches yet</h3>
-          <p className="text-sm text-muted-foreground">
-            Keep swiping to find your perfect home swap!
-          </p>
-        </div>
-      )}
+      <div className="px-4 pt-4 pb-8">
+        <Button
+          variant="outline"
+          onClick={refresh}
+          disabled={refreshing || loading}
+          className="w-full rounded-xl h-12"
+        >
+          {refreshing ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <Search className="h-4 w-4 mr-2" />
+          )}
+          Refresh
+        </Button>
+      </div>
+
+      <LikeInfoDialog open={infoOpen} onClose={() => setInfoOpen(false)} />
+      <LockedChatModal
+        open={lockedConversation !== null}
+        conversation={lockedConversation}
+        verifiedPropertyCount={verifiedPropertyCount}
+        isPremium={isPremium}
+        onClose={() => setLockedConversation(null)}
+        onVerify={handleVerify}
+        onUpgrade={handleUpgrade}
+      />
     </div>
   )
+}
+
+function subscribeToConversationChanges(
+  userId: string,
+  onChange: () => void
+) {
+  const conversationsChannel = supabase
+    .channel(`conversations:user:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "conversations",
+      },
+      () => onChange()
+    )
+    .subscribe()
+
+  const messagesChannel = supabase
+    .channel(`messages:user:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "messages",
+      },
+      () => onChange()
+    )
+    .subscribe()
+
+  return () => {
+    void supabase.removeChannel(conversationsChannel)
+    void supabase.removeChannel(messagesChannel)
+  }
 }

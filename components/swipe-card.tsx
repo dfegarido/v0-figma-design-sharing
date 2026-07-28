@@ -1,7 +1,13 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { useState, useImperativeHandle, forwardRef, type ReactNode, type Ref } from "react"
 import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion"
+
+export type SwipeDirection = "left" | "right" | "up"
+
+export interface SwipeCardHandle {
+  swipe: (direction: SwipeDirection) => void
+}
 
 interface SwipeCardProps {
   children: ReactNode
@@ -11,20 +17,17 @@ interface SwipeCardProps {
   index?: number
 }
 
-export function SwipeCard({
-  children,
-  onSwipeLeft,
-  onSwipeRight,
-  onSwipeUp,
-  index = 0,
-}: SwipeCardProps) {
+export const SwipeCard = forwardRef(function SwipeCard(
+  { children, onSwipeLeft, onSwipeRight, onSwipeUp, index = 0 }: SwipeCardProps,
+  ref: Ref<SwipeCardHandle>
+) {
   const [exitX, setExitX] = useState(0)
   const [exitY, setExitY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
 
   const x = useMotionValue(0)
   const y = useMotionValue(0)
-  
+
   const rotate = useTransform(x, [-300, 0, 300], [-15, 0, 15])
   const likeOpacity = useTransform(x, [0, 80, 150], [0, 0.8, 1])
   const nopeOpacity = useTransform(x, [-150, -80, 0], [1, 0.8, 0])
@@ -33,6 +36,27 @@ export function SwipeCard({
   const isTopCard = index === 0
   const scale = 1 - index * 0.05
   const yOffset = index * 8
+
+  const completeSwipe = (direction: SwipeDirection) => {
+    if (direction === "right") onSwipeRight?.()
+    else if (direction === "left") onSwipeLeft?.()
+    else if (direction === "up") onSwipeUp?.()
+  }
+
+  const animateOut = (direction: SwipeDirection) => {
+    if (direction === "right") setExitX(1000)
+    else if (direction === "left") setExitX(-1000)
+    else if (direction === "up") setExitY(-1000)
+  }
+
+  useImperativeHandle(ref, () => ({
+    swipe: (direction: SwipeDirection) => {
+      if (!isTopCard) return
+      animateOut(direction)
+      // Trigger the swipe action after the exit animation.
+      setTimeout(() => completeSwipe(direction), 300)
+    },
+  }))
 
   const handleDragStart = () => {
     if (isTopCard) setIsDragging(true)
@@ -45,23 +69,23 @@ export function SwipeCard({
     const velocity = 400
 
     if (info.offset.y < -threshold || info.velocity.y < -velocity) {
-      setExitY(-1000)
-      onSwipeUp?.()
+      animateOut("up")
+      completeSwipe("up")
     } else if (info.offset.x > threshold || info.velocity.x > velocity) {
-      setExitX(1000)
-      onSwipeRight?.()
+      animateOut("right")
+      completeSwipe("right")
     } else if (info.offset.x < -threshold || info.velocity.x < -velocity) {
-      setExitX(-1000)
-      onSwipeLeft?.()
+      animateOut("left")
+      completeSwipe("left")
     }
   }
 
   return (
     <motion.div
       className="absolute inset-0"
-      style={{ 
-        x: isTopCard ? x : 0, 
-        y: isTopCard ? y : yOffset, 
+      style={{
+        x: isTopCard ? x : 0,
+        y: isTopCard ? y : yOffset,
         rotate: isTopCard ? rotate : 0,
         scale,
         zIndex: 100 - index,
@@ -73,7 +97,7 @@ export function SwipeCard({
       onDragEnd={handleDragEnd}
       initial={{ scale, y: yOffset, opacity: index < 3 ? 1 : 0 }}
       animate={
-        exitX !== 0 
+        exitX !== 0
           ? { x: exitX, opacity: 0, transition: { duration: 0.3 } }
           : exitY !== 0
             ? { y: exitY, opacity: 0, transition: { duration: 0.3 } }
@@ -115,4 +139,4 @@ export function SwipeCard({
       </div>
     </motion.div>
   )
-}
+})

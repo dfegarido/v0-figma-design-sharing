@@ -1,3 +1,4 @@
+import { fetchLikedProperties, type SwipeWithProperty } from "@/lib/matches"
 import { supabase } from "@/lib/supabase"
 import type { VerificationStatus } from "@/components/verification-screen"
 import {
@@ -42,10 +43,25 @@ export interface ProfileStats {
   listings: number
 }
 
+export interface LikedProperty {
+  id: string
+  image: string
+  address: string
+  suburb: string
+  price: number
+  bedrooms: number
+  bathrooms: number
+  sqm: number
+  tags: string[]
+  verified: boolean
+  status: "active" | "pending" | "matched"
+}
+
 export interface ProfileData {
   profile: UserProfile | null
   stats: ProfileStats
   listings: ProfileListing[]
+  likedProperties: LikedProperty[]
   isPremium: boolean
   premiumPlan: PremiumPlan
 }
@@ -69,6 +85,7 @@ export async function fetchProfileData(userId: string): Promise<ProfileData> {
     { count: swipeCount },
     { data: listingsData },
     { data: matchDetailsData },
+    likedPropertiesData,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -103,6 +120,7 @@ export async function fetchProfileData(userId: string): Promise<ProfileData> {
       .from("matches")
       .select("property_a_id, property_b_id")
       .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`),
+    fetchLikedProperties(userId),
   ])
 
   const matchCountMap = new Map<string, number>()
@@ -151,6 +169,30 @@ export async function fetchProfileData(userId: string): Promise<ProfileData> {
     }
   })
 
+  const likedProperties: LikedProperty[] = (likedPropertiesData || [])
+    .map((swipe: SwipeWithProperty) => {
+      const property = swipe.swiped_property
+      if (!property) return null
+      const images = property.property_images || []
+      const mapped: LikedProperty = {
+        id: property.id,
+        image:
+          [...images].sort((a, b) => a.sort_order - b.sort_order)[0]?.url ||
+          "/placeholder.svg",
+        address: property.address || "Untitled property",
+        suburb: property.suburb || "",
+        price: property.price ?? 0,
+        bedrooms: property.bedrooms ?? 0,
+        bathrooms: property.bathrooms ?? 0,
+        sqm: property.sqm ?? 0,
+        tags: [] as string[],
+        verified: property.verified ?? false,
+        status: mapListingStatus(property.status),
+      }
+      return mapped
+    })
+    .filter((p): p is LikedProperty => p !== null)
+
   const subscription: SubscriptionProfile = {
     subscription_plan: (profileData?.subscription_plan as string) || "free",
     is_premium: Boolean(profileData?.is_premium),
@@ -189,6 +231,7 @@ export async function fetchProfileData(userId: string): Promise<ProfileData> {
       listings: listingCount ?? 0,
     },
     listings,
+    likedProperties,
     isPremium,
     premiumPlan,
   }

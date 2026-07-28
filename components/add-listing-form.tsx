@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,8 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Camera, X, Upload, Home, DollarSign, MapPin, Bed, Bath, Square, Sparkles, LandPlot, Building2, Car } from "lucide-react"
+import { Camera, X, Upload, Home, DollarSign, MapPin, Bed, Bath, Square, Sparkles, LandPlot, Building2, Car, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { toast } from "sonner"
+import { insertProperty } from "@/lib/properties"
+import { supabase } from "@/lib/supabase"
 
 interface AddListingFormProps {
   onSuccess?: () => void
@@ -42,6 +45,8 @@ const propertyTypes = ["House", "Apartment", "Townhouse", "Unit", "Land"]
 export function AddListingForm({ onSuccess }: AddListingFormProps) {
   const [step, setStep] = useState(1)
   const [images, setImages] = useState<string[]>([])
+  const [files, setFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -60,20 +65,43 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
   })
 
   const handleImageUpload = () => {
-    // Simulate image upload - in real app would use file input
-    const placeholderImages = [
-      "/houses/house-1.jpg",
-      "/houses/house-2.jpg",
-      "/houses/house-3.jpg",
-    ]
-    if (images.length < 6) {
-      setImages([...images, placeholderImages[images.length % 3]])
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || [])
+    if (!selected.length) return
+
+    const remainingSlots = 6 - images.length
+    const toAdd = selected.slice(0, remainingSlots)
+    const newPreviews = toAdd.map((file) => URL.createObjectURL(file))
+
+    setImages((prev) => [...prev, ...newPreviews])
+    setFiles((prev) => [...prev, ...toAdd])
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
   const removeImage = (index: number) => {
+    const url = images[index]
+    if (url?.startsWith("blob:")) {
+      URL.revokeObjectURL(url)
+    }
     setImages(images.filter((_, i) => i !== index))
+    setFiles(files.filter((_, i) => i !== index))
   }
+
+  useEffect(() => {
+    return () => {
+      images.forEach((url) => {
+        if (url.startsWith("blob:")) {
+          URL.revokeObjectURL(url)
+        }
+      })
+    }
+  }, [])
 
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
@@ -84,11 +112,43 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
   }
 
   const handleSubmit = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      toast.error("You must be signed in to list a property.")
+      return
+    }
+
     setIsSubmitting(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsSubmitting(false)
-    onSuccess?.()
+    try {
+      await insertProperty(
+        user.id,
+        {
+          address: formData.address,
+          suburb: formData.city,
+          state: "",
+          price: Number(formData.price),
+          property_type: formData.propertyType,
+          bedrooms: Number(formData.beds),
+          bathrooms: Number(formData.baths),
+          parking: Number(formData.parking) || 0,
+          sqm: Number(formData.sqft) || undefined,
+          land_size: Number(formData.landSize) || 0,
+          description: formData.description,
+          special_conditions: formData.specialConditions,
+          tags: selectedTags,
+        },
+        files
+      )
+      toast.success("Property listed successfully!")
+      onSuccess?.()
+    } catch (error) {
+      console.error("Failed to list property:", error)
+      toast.error("Failed to list property. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const isStep1Valid = images.length >= 1
@@ -133,6 +193,15 @@ export function AddListingForm({ onSuccess }: AddListingFormProps) {
                   Add at least 1 photo of your home. Great photos get 3x more matches!
                 </p>
               </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFileChange}
+              />
 
               {/* Image grid */}
               <div className="grid grid-cols-3 gap-3">

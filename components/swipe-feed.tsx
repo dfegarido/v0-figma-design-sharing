@@ -1,22 +1,33 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { AnimatePresence } from "framer-motion"
-import { SwipeCard } from "./swipe-card"
+import { SwipeCard, type SwipeCardHandle, type SwipeDirection } from "./swipe-card"
 import { PropertyCard, type Property } from "./property-card"
 import { SwipeActions } from "./swipe-actions"
 import { MatchModal } from "./match-modal"
 import { FilterSheet, type FilterValues, defaultFilters } from "./filter-sheet"
-import { Home, RefreshCw } from "lucide-react"
+import { Home, RefreshCw, HelpCircle, Crown, SlidersHorizontal } from "lucide-react"
 import { Button } from "./ui/button"
+import { Skeleton } from "./ui/skeleton"
 import type { BuyerCriteria } from "./buyer-criteria-screen"
+import {
+  fetchDiscoverProperties,
+  deleteSwipe,
+  mapDbPropertyToUi,
+  type Property as DbProperty,
+} from "@/lib/properties"
+import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
+import { findConversationForProperty } from "@/lib/matches"
 
-// Calculate match score between a property and buyer criteria
+const DISCOVER_BATCH_SIZE = 16
+const REFETCH_COOLDOWN_MS = 5_000
+
 function calculateMatchScore(property: Property, criteria: BuyerCriteria): number {
   let score = 0
   let totalWeight = 0
 
-  // Price match (weight: 25)
   totalWeight += 25
   if (property.price >= criteria.minPrice && property.price <= criteria.maxPrice) {
     score += 25
@@ -26,15 +37,15 @@ function calculateMatchScore(property: Property, criteria: BuyerCriteria): numbe
     score += Math.max(0, 25 * (1 - priceDiff))
   }
 
-  // Suburb match (weight: 20)
   totalWeight += 20
   if (criteria.suburbs.length === 0) {
     score += 20
-  } else if (criteria.suburbs.some((s) => property.suburb.toLowerCase().includes(s.toLowerCase()))) {
+  } else if (
+    criteria.suburbs.some((s) => property.suburb.toLowerCase().includes(s.toLowerCase()))
+  ) {
     score += 20
   }
 
-  // Bedrooms (weight: 15)
   totalWeight += 15
   if (criteria.minBeds === 0 || property.bedrooms >= criteria.minBeds) {
     score += 15
@@ -42,34 +53,37 @@ function calculateMatchScore(property: Property, criteria: BuyerCriteria): numbe
     score += 8
   }
 
-  // Bathrooms (weight: 10)
   totalWeight += 10
   if (criteria.minBaths === 0 || property.bathrooms >= criteria.minBaths) {
     score += 10
   }
 
-  // Parking (weight: 5)
   totalWeight += 5
   if (criteria.minParking === 0 || property.parking >= criteria.minParking) {
     score += 5
   }
 
-  // Property type (weight: 10)
   totalWeight += 10
   if (criteria.propertyTypes.length === 0) {
     score += 10
-  } else if (property.propertyType && criteria.propertyTypes.includes(property.propertyType)) {
+  } else if (
+    property.propertyType && criteria.propertyTypes.includes(property.propertyType)
+  ) {
     score += 10
   }
 
-  // Land size (weight: 5)
   totalWeight += 5
   const land = property.landSize || 0
   if (land >= criteria.minLandSize && land <= criteria.maxLandSize) {
     score += 5
   }
 
-  // Feature overlap (weight: 10)
+  totalWeight += 5
+  const sqm = property.sqm || 0
+  if (criteria.minSqm === 0 || sqm >= criteria.minSqm) {
+    score += 5
+  }
+
   totalWeight += 10
   if (criteria.features.length === 0) {
     score += 10
@@ -81,133 +95,26 @@ function calculateMatchScore(property: Property, criteria: BuyerCriteria): numbe
   return Math.round((score / totalWeight) * 100)
 }
 
-// Sample properties data
-const sampleProperties: Property[] = [
-  {
-    id: "1",
-    images: ["/houses/house-1.jpg", "/houses/house-2.jpg"],
-    location: "123 Ocean Drive, Bondi Beach",
-    suburb: "Bondi Beach",
-    price: 2500000,
-    bedrooms: 4,
-    bathrooms: 3,
-    parking: 2,
-    sqm: 320,
-    landSize: 450,
-    propertyType: "House",
-    tags: ["Pool", "Ocean View", "Renovated"],
-    specialConditions: "Granny flat included",
-    verified: true,
-    ownerName: "Sarah Mitchell",
-  },
-  {
-    id: "2",
-    images: ["/houses/house-2.jpg", "/houses/house-3.jpg"],
-    location: "45 Maple Street, Paddington",
-    suburb: "Paddington",
-    price: 1800000,
-    bedrooms: 3,
-    bathrooms: 2,
-    parking: 1,
-    sqm: 180,
-    landSize: 220,
-    propertyType: "Townhouse",
-    tags: ["Garden", "Heritage", "Quiet Street"],
-    verified: true,
-    ownerName: "James Wilson",
-  },
-  {
-    id: "3",
-    images: ["/houses/house-3.jpg", "/houses/house-4.jpg"],
-    location: "789 Harbour View, Darling Point",
-    suburb: "Darling Point",
-    price: 4200000,
-    bedrooms: 5,
-    bathrooms: 4,
-    parking: 3,
-    sqm: 450,
-    landSize: 600,
-    propertyType: "House",
-    tags: ["Pool", "City View", "Smart Home", "Garage"],
-    specialConditions: "DA approved for extension",
-    verified: false,
-    ownerName: "Emma Thompson",
-  },
-  {
-    id: "4",
-    images: ["/houses/house-4.jpg", "/houses/house-5.jpg"],
-    location: "12 Garden Lane, Mosman",
-    suburb: "Mosman",
-    price: 3100000,
-    bedrooms: 4,
-    bathrooms: 3,
-    parking: 2,
-    sqm: 380,
-    landSize: 500,
-    propertyType: "House",
-    tags: ["Garden", "Solar Panels", "Renovated"],
-    verified: true,
-    ownerName: "Michael Chen",
-  },
-  {
-    id: "5",
-    images: ["/houses/house-5.jpg", "/houses/house-6.jpg"],
-    location: "56 Sunset Boulevard, Manly",
-    suburb: "Manly",
-    price: 2200000,
-    bedrooms: 3,
-    bathrooms: 2,
-    parking: 2,
-    sqm: 250,
-    landSize: 350,
-    propertyType: "House",
-    tags: ["Ocean View", "Garden", "Pet Friendly"],
-    verified: true,
-    ownerName: "Lisa Anderson",
-  },
-  {
-    id: "6",
-    images: ["/houses/house-6.jpg", "/houses/house-1.jpg"],
-    location: "88 Palm Avenue, Double Bay",
-    suburb: "Double Bay",
-    price: 5500000,
-    bedrooms: 6,
-    bathrooms: 5,
-    parking: 4,
-    sqm: 550,
-    landSize: 800,
-    propertyType: "House",
-    tags: ["Pool", "Smart Home", "Garage", "Fireplace", "Gated"],
-    specialConditions: "Self-contained studio apartment",
-    verified: true,
-    ownerName: "Robert Taylor",
-  },
-]
-
-// User's property for matching
-export const userProperty: Property = {
-  id: "user",
-  images: ["/houses/house-3.jpg"],
-  location: "22 Rose Street, Surry Hills",
-  suburb: "Surry Hills",
-  price: 1500000,
-  bedrooms: 2,
-  bathrooms: 1,
-  parking: 1,
-  sqm: 120,
-  landSize: 150,
-  propertyType: "Apartment",
-  tags: ["Modern", "City View"],
-  verified: true,
-  ownerName: "You",
-}
-
-interface SwipeFeedProps {
-  onNavigate?: (screen: string) => void
-  buyerCriteria?: BuyerCriteria | null
-  canChat?: boolean
-  onNavigateUnlock?: () => void
-  isPremium?: boolean
+function propertyMatchesFilters(property: Property, filters: FilterValues): boolean {
+  if (
+    filters.suburb &&
+    !property.suburb.toLowerCase().includes(filters.suburb.toLowerCase()) &&
+    !property.location.toLowerCase().includes(filters.suburb.toLowerCase())
+  )
+    return false
+  if (property.price < filters.minPrice || property.price > filters.maxPrice) return false
+  if (filters.minBeds > 0 && property.bedrooms < filters.minBeds) return false
+  if (filters.minBaths > 0 && property.bathrooms < filters.minBaths) return false
+  if (filters.minParking > 0 && property.parking < filters.minParking) return false
+  if (
+    filters.propertyTypes.length > 0 &&
+    property.propertyType &&
+    !filters.propertyTypes.includes(property.propertyType)
+  )
+    return false
+  const land = property.landSize ?? 0
+  if (land < filters.minLandSize || land > filters.maxLandSize) return false
+  return true
 }
 
 function applyScoresAndSort(properties: Property[], criteria: BuyerCriteria | null | undefined): Property[] {
@@ -217,124 +124,302 @@ function applyScoresAndSort(properties: Property[], criteria: BuyerCriteria | nu
     .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
 }
 
+function mapToUi(db: DbProperty): Property {
+  return {
+    ...mapDbPropertyToUi(db),
+    landSize: db.land_size,
+  }
+}
+
+interface SwipeFeedProps {
+  onNavigate?: (screen: string, chatId?: string) => void
+  buyerCriteria?: BuyerCriteria | null
+  canChat?: boolean
+  onNavigateUnlock?: () => void
+  isPremium?: boolean
+}
+
 export function SwipeFeed({
   onNavigate,
   buyerCriteria,
   canChat = true,
   onNavigateUnlock,
-  isPremium = true,
+  isPremium = false,
 }: SwipeFeedProps) {
-  const [properties, setProperties] = useState<Property[]>(() => applyScoresAndSort(sampleProperties, buyerCriteria))
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [history, setHistory] = useState<{ property: Property; action: string }[]>([])
+  const [displayProperties, setDisplayProperties] = useState<Property[]>([])
+  const [allProperties, setAllProperties] = useState<Property[]>([])
+  const [loading, setLoading] = useState(true)
+  const [lastRemoved, setLastRemoved] = useState<Property | null>(null)
   const [showMatch, setShowMatch] = useState(false)
+  const [matchChatId, setMatchChatId] = useState<string | null>(null)
   const [matchedProperty, setMatchedProperty] = useState<Property | null>(null)
   const [filters, setFilters] = useState<FilterValues>(defaultFilters)
+  const [showPremiumUpsell, setShowPremiumUpsell] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [helpOpen, setHelpOpen] = useState(false)
 
-  const currentProperty = properties[currentIndex]
-  const remainingCards = properties.length - currentIndex
+  const allPropertiesRef = useRef<Property[]>([])
+  const filtersRef = useRef<FilterValues>(filters)
+  const activeCardAnimateRef = useRef<SwipeCardHandle>(null)
+  const lastFetchAtRef = useRef<number>(0)
   const isSwiping = useRef(false)
 
-  const handleSwipe = useCallback((direction: "left" | "right" | "up") => {
-    if (!currentProperty || isSwiping.current) return
-    isSwiping.current = true
+  useEffect(() => {
+    filtersRef.current = filters
+  }, [filters])
 
-    setHistory((prev) => [...prev, { property: currentProperty, action: direction }])
+  useEffect(() => {
+    const initFilters = buyerCriteria
+      ? {
+          suburb: buyerCriteria.suburbs.join(", ") || "",
+          minPrice: buyerCriteria.minPrice,
+          maxPrice: buyerCriteria.maxPrice,
+          minBeds: buyerCriteria.minBeds,
+          minBaths: buyerCriteria.minBaths,
+          minParking: buyerCriteria.minParking,
+          minLandSize: buyerCriteria.minLandSize,
+          maxLandSize: buyerCriteria.maxLandSize,
+          propertyTypes: buyerCriteria.propertyTypes,
+        }
+      : defaultFilters
+    setFilters(initFilters)
+    filtersRef.current = initFilters
+  }, [buyerCriteria])
 
-    // 30% chance of match on right swipe or super like
-    if ((direction === "right" || direction === "up") && Math.random() < 0.3) {
-      setMatchedProperty(currentProperty)
-      setShowMatch(true)
+  const loadProperties = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setLoading(false)
+      return
     }
+    setUserId(user.id)
 
-    setTimeout(() => {
-      setCurrentIndex((prev) => prev + 1)
-      isSwiping.current = false
-    }, 300)
-  }, [currentProperty])
+    setLoading(true)
+    try {
+      const data = await fetchDiscoverProperties(user.id, DISCOVER_BATCH_SIZE)
+      const mapped = applyScoresAndSort(data.map(mapToUi), buyerCriteria)
+      allPropertiesRef.current = mapped
+      setAllProperties(mapped)
+      setDisplayProperties(mapped.filter((p) => propertyMatchesFilters(p, filtersRef.current)))
+      lastFetchAtRef.current = Date.now()
+    } catch (error) {
+      console.error("Failed to load discover properties:", error)
+      toast.error("Failed to load properties.")
+    } finally {
+      setLoading(false)
+    }
+  }, [buyerCriteria])
 
-  const handleUndo = useCallback(() => {
-    if (history.length === 0 || currentIndex === 0) return
-    setHistory((prev) => prev.slice(0, -1))
-    setCurrentIndex((prev) => prev - 1)
-  }, [history.length, currentIndex])
+  useEffect(() => {
+    void loadProperties()
+  }, [loadProperties])
 
-  const handleReset = () => {
-    setFilters(defaultFilters)
-    setProperties(applyScoresAndSort(sampleProperties, buyerCriteria))
-    setCurrentIndex(0)
-    setHistory([])
-  }
-
-  const handleFiltersChange = (newFilters: FilterValues) => {
-    setFilters(newFilters)
-    const filtered = sampleProperties.filter((p) => {
-      if (newFilters.suburb) {
-        const wantedSuburbs = newFilters.suburb
-          .split(",")
-          .map((s) => s.trim().toLowerCase())
-          .filter(Boolean)
-        if (wantedSuburbs.length > 0 && !wantedSuburbs.some((s) => p.suburb.toLowerCase().includes(s))) return false
+  useEffect(() => {
+    const onFocus = () => {
+      const now = Date.now()
+      if (now - lastFetchAtRef.current > REFETCH_COOLDOWN_MS) {
+        lastFetchAtRef.current = now
+        void loadProperties()
       }
-      if (p.price < newFilters.minPrice || p.price > newFilters.maxPrice) return false
-      if (p.bedrooms < newFilters.minBeds) return false
-      if (p.bathrooms < newFilters.minBaths) return false
-      if (p.parking < newFilters.minParking) return false
-      if (newFilters.propertyTypes.length > 0 && p.propertyType && !newFilters.propertyTypes.includes(p.propertyType)) return false
-      const land = p.landSize || 0
-      if (land < newFilters.minLandSize || land > newFilters.maxLandSize) return false
-      return true
-    })
-    setProperties(applyScoresAndSort(filtered, buyerCriteria))
-    setCurrentIndex(0)
-    setHistory([])
-  }
+    }
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [loadProperties])
 
-  const handleResetFilters = () => {
+  useEffect(() => {
+    setDisplayProperties(
+      applyScoresAndSort(
+        allPropertiesRef.current.filter((p) => propertyMatchesFilters(p, filters)),
+        buyerCriteria
+      )
+    )
+  }, [filters, buyerCriteria])
+
+  const recordSwipe = useCallback(
+    async (propertyId: string, direction: "left" | "right" | "up") => {
+      if (!userId) return { success: false, error: "Not signed in" }
+      try {
+        const { error } = await supabase.from("swipes").upsert(
+          {
+            swiper_id: userId,
+            swiped_property_id: propertyId,
+            direction,
+          },
+          { onConflict: "swiper_id, swiped_property_id" }
+        )
+        if (error) throw error
+        return { success: true }
+      } catch (error: any) {
+        console.warn("Failed to record swipe:", error)
+        return { success: false, error: error?.message || "Failed to save swipe" }
+      }
+    },
+    [userId]
+  )
+
+  const handleSwipe = useCallback(
+    async (direction: "left" | "right" | "up") => {
+      const p = displayProperties[0]
+      if (!p || isSwiping.current) return
+      isSwiping.current = true
+
+      setDisplayProperties((prev) => prev.filter((prop) => prop.id !== p.id))
+      allPropertiesRef.current = allPropertiesRef.current.filter((prop) => prop.id !== p.id)
+      setAllProperties(allPropertiesRef.current)
+
+      const result = await recordSwipe(p.id, direction)
+
+      if (result.success) {
+        setLastRemoved(p)
+        if (direction === "right" || direction === "up") {
+          const convoId = await findConversationForProperty(userId || "", p.id)
+          if (convoId) {
+            setMatchChatId(convoId)
+            setMatchedProperty(p)
+            setShowMatch(true)
+          }
+        }
+      } else {
+        setDisplayProperties((prev) => [p, ...prev])
+        allPropertiesRef.current = [p, ...allPropertiesRef.current]
+        setAllProperties(allPropertiesRef.current)
+        toast.error(direction === "left" ? "Couldn't save pass" : "Couldn't save like")
+      }
+
+      setTimeout(() => {
+        isSwiping.current = false
+      }, 300)
+    },
+    [displayProperties, userId, recordSwipe]
+  )
+
+  const handleUndo = useCallback(async () => {
+    if (!lastRemoved || !userId) return
+    try {
+      await deleteSwipe(userId, lastRemoved.id)
+      setDisplayProperties((prev) => [lastRemoved, ...prev])
+      allPropertiesRef.current = [lastRemoved, ...allPropertiesRef.current]
+      setAllProperties(allPropertiesRef.current)
+      setLastRemoved(null)
+    } catch (error) {
+      console.error("Failed to undo swipe:", error)
+      toast.error("Failed to undo swipe.")
+    }
+  }, [lastRemoved, userId])
+
+  const handleOpenFilter = useCallback(() => {
+    if (isPremium) {
+      // The FilterSheet owns its own open state; we render it below.
+    } else {
+      setShowPremiumUpsell(true)
+    }
+  }, [isPremium])
+
+  const handleCloseMatch = useCallback(() => {
+    setShowMatch(false)
+    setMatchChatId(null)
+    setMatchedProperty(null)
+  }, [])
+
+  const handleStartChat = useCallback(() => {
+    if (matchChatId) {
+      onNavigate?.("chat", matchChatId)
+    }
+    handleCloseMatch()
+  }, [matchChatId, onNavigate, handleCloseMatch])
+
+  const handleFiltersChange = useCallback((newFilters: FilterValues) => {
+    setFilters(newFilters)
+  }, [])
+
+  const handleResetFilters = useCallback(() => {
     setFilters(defaultFilters)
-    setProperties(applyScoresAndSort(sampleProperties, buyerCriteria))
-    setCurrentIndex(0)
-    setHistory([])
-  }
+  }, [])
+
+  const hasActiveFilters =
+    filters.suburb.trim() !== "" ||
+    filters.minPrice > 0 ||
+    filters.maxPrice < 5000000 ||
+    filters.minBeds > 0 ||
+    filters.minBaths > 0 ||
+    filters.minParking > 0 ||
+    filters.minLandSize > 0 ||
+    filters.maxLandSize < 2000 ||
+    filters.propertyTypes.length > 0
+
+  const topProperty = displayProperties[0]
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Header with filter */}
+      {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <Home className="h-5 w-5 text-primary" />
           <span className="text-sm text-muted-foreground">
-            {remainingCards} {remainingCards === 1 ? "home" : "homes"} left
+            {displayProperties.length} {displayProperties.length === 1 ? "home" : "homes"} left
           </span>
         </div>
-        {isPremium ? (
-          <FilterSheet
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            onReset={handleResetFilters}
-            buyerCriteria={buyerCriteria}
-          />
-        ) : (
-          <div className="w-12" />
-        )}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            onClick={() => setHelpOpen(true)}
+          >
+            <HelpCircle className="h-5 w-5 text-muted-foreground" />
+          </Button>
+          {isPremium ? (
+            <FilterSheet
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              onReset={handleResetFilters}
+              buyerCriteria={buyerCriteria}
+            />
+          ) : (
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full bg-card border-border hover:bg-secondary"
+              onClick={handleOpenFilter}
+            >
+              <SlidersHorizontal className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Cards stack */}
       <div className="flex-1 min-h-0 relative px-4">
-        {remainingCards > 0 ? (
+        {loading ? (
+          <DiscoverSkeleton />
+        ) : displayProperties.length > 0 ? (
           <div className="relative h-full w-full">
             <AnimatePresence mode="popLayout">
-              {properties.slice(currentIndex, currentIndex + 3).map((property, index) => (
-                <SwipeCard
-                  key={property.id}
-                  index={index}
-                  onSwipeLeft={index === 0 ? () => handleSwipe("left") : undefined}
-                  onSwipeRight={index === 0 ? () => handleSwipe("right") : undefined}
-                  onSwipeUp={index === 0 ? () => handleSwipe("up") : undefined}
-                >
-                  <PropertyCard property={property} />
-                </SwipeCard>
-              ))}
+              {displayProperties
+                .slice(0, 2)
+                .reverse()
+                .map((property, index, arr) => (
+                  <SwipeCard
+                    key={property.id}
+                    ref={index === arr.length - 1 ? activeCardAnimateRef : undefined}
+                    index={arr.length - 1 - index}
+                    onSwipeLeft={() => handleSwipe("left")}
+                    onSwipeRight={() => handleSwipe("right")}
+                    onSwipeUp={() => handleSwipe("up")}
+                  >
+                    <PropertyCard
+                      property={{
+                        ...property,
+                        matchScore:
+                          buyerCriteria && property.matchScore != null
+                            ? property.matchScore
+                            : undefined,
+                      }}
+                    />
+                  </SwipeCard>
+                ))}
             </AnimatePresence>
           </div>
         ) : (
@@ -342,49 +427,137 @@ export function SwipeFeed({
             <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-4">
               <Home className="h-10 w-10 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">No more homes</h3>
+            <h3 className="text-xl font-semibold mb-2">
+              {hasActiveFilters ? "No matches found" : "Come back later"}
+            </h3>
             <p className="text-muted-foreground mb-6">
-              {"You've seen all the homes in your area. Try adjusting your filters or check back later."}
+              {hasActiveFilters
+                ? "Try updating your buyer preferences or filters to match more properties."
+                : "No more properties to swipe right now. New homes are added daily — check back soon."}
             </p>
-            <Button onClick={handleReset} className="rounded-xl">
+            <Button onClick={loadProperties} className="rounded-xl">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Start Over
+              Refresh
             </Button>
           </div>
         )}
       </div>
 
       {/* Action buttons */}
-      {remainingCards > 0 && (
+      {displayProperties.length > 0 && !loading && (
         <div className="flex-shrink-0 px-4 pb-4">
           <SwipeActions
-            onNope={() => handleSwipe("left")}
-            onLike={() => handleSwipe("right")}
-            onSuperLike={() => handleSwipe("up")}
+            onNope={() => activeCardAnimateRef.current?.swipe("left")}
+            onLike={() => activeCardAnimateRef.current?.swipe("right")}
+            onSuperLike={() => activeCardAnimateRef.current?.swipe("up")}
             onUndo={handleUndo}
-            canUndo={history.length > 0}
+            canUndo={!!lastRemoved}
           />
         </div>
       )}
 
-      {/* Match modal */}
-      {matchedProperty && (
+      {topProperty && (
         <MatchModal
           isOpen={showMatch}
-          onClose={() => setShowMatch(false)}
-          onMessage={() => {
-            setShowMatch(false)
-            onNavigate?.("messages")
-          }}
+          onClose={handleCloseMatch}
+          onMessage={canChat ? handleStartChat : undefined}
+          onUnlock={canChat ? undefined : onNavigateUnlock}
           canChat={canChat}
-          onUnlock={() => {
-            setShowMatch(false)
-            onNavigateUnlock?.()
-          }}
-          yourProperty={userProperty}
+          yourProperty={topProperty}
           matchedProperty={matchedProperty}
         />
       )}
+
+      {/* Help dialog */}
+      <AnimatePresence>
+        {helpOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-card rounded-2xl p-6 max-w-sm w-full space-y-4">
+              <h3 className="text-lg font-semibold">How Discover works</h3>
+              <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-4">
+                <li>Swipe right to like a property.</li>
+                <li>Swipe left to pass.</li>
+                <li>Swipe up to super like.</li>
+                <li>Use filters to narrow matches (premium).</li>
+                <li>If both owners like each other, it's a match!</li>
+              </ul>
+              <Button className="w-full rounded-xl" onClick={() => setHelpOpen(false)}>
+                Got it
+              </Button>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Premium upsell dialog */}
+      <AnimatePresence>
+        {showPremiumUpsell && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-card rounded-2xl p-6 max-w-sm w-full text-center space-y-4">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Crown className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">Filters are a Premium feature</h3>
+              <p className="text-sm text-muted-foreground">
+                Upgrade to premium to unlock advanced filters and find your perfect swap faster.
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowPremiumUpsell(false)}>
+                  Not now
+                </Button>
+                <Button className="flex-1 rounded-xl" onClick={() => {
+                  setShowPremiumUpsell(false)
+                  onNavigateUnlock?.()
+                }}>
+                  Upgrade
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function DiscoverSkeleton() {
+  return (
+    <div className="relative h-full w-full rounded-3xl bg-muted/30 shadow-xl overflow-hidden">
+      {/* Image skeleton */}
+      <div className="relative h-[58%] w-full">
+        <Skeleton className="absolute inset-0 rounded-none bg-muted" />
+        <div className="absolute top-4 left-4 right-4 flex justify-between">
+          <Skeleton className="h-6 w-20 rounded-md bg-muted-foreground/20" />
+          <Skeleton className="h-6 w-16 rounded-md bg-muted-foreground/20" />
+        </div>
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+          <Skeleton className="h-1.5 w-6 rounded-full bg-muted-foreground/30" />
+          <Skeleton className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
+          <Skeleton className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
+        </div>
+      </div>
+
+      {/* Content skeleton */}
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-5 rounded bg-muted-foreground/20" />
+          <Skeleton className="h-5 w-32 rounded bg-muted-foreground/20" />
+        </div>
+        <Skeleton className="h-12 w-full rounded-2xl bg-muted-foreground/20" />
+        <div className="flex gap-2">
+          <Skeleton className="h-5 w-14 rounded-full bg-muted-foreground/20" />
+          <Skeleton className="h-5 w-20 rounded-full bg-muted-foreground/20" />
+          <Skeleton className="h-5 w-16 rounded-full bg-muted-foreground/20" />
+        </div>
+        <div className="flex items-center gap-2 pt-2">
+          <Skeleton className="h-9 w-9 rounded-full bg-muted-foreground/20" />
+          <div className="flex-1 space-y-1">
+            <Skeleton className="h-3 w-20 rounded bg-muted-foreground/20" />
+            <Skeleton className="h-3 w-24 rounded bg-muted-foreground/20" />
+          </div>
+          <Skeleton className="h-4 w-4 rounded bg-muted-foreground/20" />
+        </div>
+      </div>
     </div>
   )
 }

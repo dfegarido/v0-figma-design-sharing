@@ -1,128 +1,161 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Heart, ArrowLeftRight, MessageCircle, Star, Bell, Home, Check, ShieldCheck, Users } from "lucide-react"
+import { ChevronLeft, Bell, Check, Loader2, Star, Heart, MessageSquare, ShieldCheck, Users } from "lucide-react"
 import { motion } from "framer-motion"
-import Image from "next/image"
+import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
+import { timeAgo } from "@/lib/matches"
+import {
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  subscribeToNotifications,
+  type AppNotification,
+} from "@/lib/matches"
 
 interface NotificationsScreenProps {
   onBack: () => void
-  onViewMatch?: (matchId: string) => void
-  onViewMessage?: (chatId: string) => void
+  isPremium?: boolean
+  onOpenChat?: (chatId: string, requiresPremium: boolean) => void
+  onOpenProperty?: (propertyId: string) => void
+  onOpenMatches?: () => void
+  onOpenVerification?: (propertyId?: string) => void
+  onOpenPremium?: () => void
 }
 
-interface Notification {
-  id: string
-  type: "match" | "like" | "message" | "superlike" | "system" | "verification" | "representative"
-  title: string
-  message: string
-  timestamp: string
-  read: boolean
-  image?: string
-  actionId?: string
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  match: Star,
+  superlike: Star,
+  like: Heart,
+  message: MessageSquare,
+  verification: ShieldCheck,
+  representative: Users,
+  system: Bell,
 }
 
-const notifications: Notification[] = [
-  {
-    id: "1",
-    type: "match",
-    title: "New Match!",
-    message: "You matched with Sarah Mitchell's property in Bondi Beach",
-    timestamp: "2 minutes ago",
-    read: false,
-    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop",
-    actionId: "match-1",
-  },
-  {
-    id: "2",
-    type: "message",
-    title: "New Message",
-    message: "James Wilson: Hey! I loved your property...",
-    timestamp: "1 hour ago",
-    read: false,
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-    actionId: "2",
-  },
-  {
-    id: "3",
-    type: "like",
-    title: "Someone likes your home!",
-    message: "A user in Paddington liked your property",
-    timestamp: "3 hours ago",
-    read: true,
-  },
-  {
-    id: "4",
-    type: "superlike",
-    title: "Super Like received!",
-    message: "Emma Thompson super liked your property",
-    timestamp: "1 day ago",
-    read: true,
-    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop",
-  },
-  {
-    id: "5",
-    type: "verification",
-    title: "Verification approved",
-    message: "Your property ownership has been verified. You can now communicate with matches.",
-    timestamp: "2 days ago",
-    read: true,
-  },
-  {
-    id: "6",
-    type: "representative",
-    title: "Representative assigned",
-    message: "A Beagl representative has been assigned to your swap with Sarah Mitchell.",
-    timestamp: "3 days ago",
-    read: true,
-  },
-  {
-    id: "7",
-    type: "system",
-    title: "Profile boost active",
-    message: "Your listing is being shown to more users",
-    timestamp: "4 days ago",
-    read: true,
-  },
-]
+export function NotificationsScreen({
+  onBack,
+  isPremium = false,
+  onOpenChat,
+  onOpenProperty,
+  onOpenMatches,
+  onOpenVerification,
+  onOpenPremium,
+}: NotificationsScreenProps) {
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
 
-const getNotificationIcon = (type: Notification["type"]) => {
-  switch (type) {
-    case "match": return ArrowLeftRight
-    case "like": return Heart
-    case "message": return MessageCircle
-    case "superlike": return Star
-    case "verification": return ShieldCheck
-    case "representative": return Users
-    case "system": return Bell
-  }
-}
+  useEffect(() => {
+    let cancelled = false
 
-const getNotificationColor = (type: Notification["type"]) => {
-  switch (type) {
-    case "match": return "bg-primary text-primary-foreground"
-    case "like": return "bg-destructive/80 text-white"
-    case "message": return "bg-accent text-accent-foreground"
-    case "superlike": return "bg-chart-4 text-foreground"
-    case "verification": return "bg-emerald-500 text-white"
-    case "representative": return "bg-primary/80 text-primary-foreground"
-    case "system": return "bg-secondary text-foreground"
-  }
-}
+    const load = async () => {
+      setLoading(true)
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user || cancelled) return
+        setUserId(user.id)
 
-export function NotificationsScreen({ onBack, onViewMatch, onViewMessage }: NotificationsScreenProps) {
-  const [items, setItems] = useState(notifications)
-  const unreadCount = items.filter((n) => !n.read).length
+        const data = await fetchNotifications(user.id)
+        if (cancelled) return
+        setNotifications(data)
+      } catch (error) {
+        console.error("Failed to load notifications:", error)
+        toast.error("Failed to load notifications.")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
 
-  const handleNotificationClick = (notification: Notification) => {
-    setItems((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)))
-    if (notification.type === "match" && notification.actionId && onViewMatch) {
-      onViewMatch(notification.actionId)
-    } else if (notification.type === "message" && notification.actionId && onViewMessage) {
-      onViewMessage(notification.actionId)
+    void load()
+
+    const unsubscribe = subscribeToNotifications(
+      userId || "00000000-0000-0000-0000-000000000000",
+      ({ event, notification }) => {
+        setNotifications((prev) => {
+          const exists = prev.some((n) => n.id === notification.id)
+          if (exists) {
+            return prev.map((n) => (n.id === notification.id ? notification : n))
+          }
+          if (event === "INSERT") {
+            return [notification, ...prev]
+          }
+          return prev
+        })
+      }
+    )
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [userId])
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await markNotificationRead(id)
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      )
+    } catch (error) {
+      console.error("Failed to mark notification read:", error)
+      toast.error("Failed to update notification.")
     }
   }
+
+  const handleMarkAllRead = async () => {
+    if (!userId) return
+    try {
+      await markAllNotificationsRead(userId)
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    } catch (error) {
+      console.error("Failed to mark all read:", error)
+      toast.error("Failed to mark all as read.")
+    }
+  }
+
+  const handlePress = (notification: AppNotification) => {
+    if (!notification.action_id) {
+      void handleMarkRead(notification.id)
+      return
+    }
+
+    if (notification.type === "message") {
+      if (!isPremium) {
+        onOpenPremium?.()
+        return
+      }
+      onOpenChat?.(notification.action_id, true)
+      void handleMarkRead(notification.id)
+      return
+    }
+
+    if (["like", "superlike"].includes(notification.type)) {
+      onOpenProperty?.(notification.action_id)
+      void handleMarkRead(notification.id)
+      return
+    }
+
+    if (notification.type === "verification") {
+      onOpenVerification?.(notification.action_id)
+      void handleMarkRead(notification.id)
+      return
+    }
+
+    if (notification.type === "match") {
+      onOpenMatches?.()
+      void handleMarkRead(notification.id)
+      return
+    }
+
+    void handleMarkRead(notification.id)
+  }
+
+  const unreadCount = notifications.filter((n) => !n.read).length
 
   return (
     <div className="h-full overflow-auto pb-6">
@@ -133,87 +166,94 @@ export function NotificationsScreen({ onBack, onViewMatch, onViewMessage }: Noti
             <Button variant="ghost" size="icon" onClick={onBack} className="rounded-xl">
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <h2 className="text-xl font-bold text-foreground">Notifications</h2>
+            <div className="relative">
+              <h2 className="text-xl font-bold text-foreground">Notifications</h2>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-4 bg-primary text-primary-foreground text-[10px] px-1.5 py-0 rounded-full min-w-[1.25rem] h-4 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
           </div>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-primary text-sm"
-              onClick={() => setItems((prev) => prev.map((n) => ({ ...n, read: true })))}
-            >
-              <Check className="h-4 w-4 mr-1" />
-              Mark all read
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={handleMarkAllRead}
+            disabled={unreadCount === 0 || loading}
+          >
+            <Check className="h-4 w-4 mr-1" />
+            Mark all read
+          </Button>
         </div>
       </div>
 
       {/* Notifications list */}
       <div className="px-4 py-4">
-        {items.length > 0 ? (
-          <div className="space-y-2">
-            {items.map((notification, index) => {
-              const Icon = getNotificationIcon(notification.type)
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mb-2" />
+            <p className="text-muted-foreground">Loading notifications...</p>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+              <Bell className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold text-foreground mb-1">No notifications yet</h3>
+            <p className="text-sm text-muted-foreground">
+              Matches, likes, messages and verification updates will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {notifications.map((notification, index) => {
+              const Icon = iconMap[notification.type] || Bell
+              const unread = !notification.read
+              const isGatedMessage = notification.type === "message" && !isPremium
+
               return (
                 <motion.button
                   key={notification.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`w-full flex items-start gap-3 p-4 rounded-2xl text-left transition-colors ${
-                    notification.read ? "bg-card" : "bg-primary/5"
-                  } hover:bg-secondary`}
+                  onClick={() => handlePress(notification)}
+                  className={`w-full text-left p-4 rounded-2xl border transition-colors ${
+                    unread
+                      ? "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                      : "bg-card border-border hover:bg-accent/50"
+                  }`}
                 >
-                  {/* Icon or Avatar */}
-                  {notification.image ? (
-                    <div className="relative flex-shrink-0">
-                      <div className="w-12 h-12 rounded-full overflow-hidden">
-                        <Image
-                          src={notification.image || "/placeholder.svg"}
-                          alt=""
-                          width={48}
-                          height={48}
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${getNotificationColor(notification.type)}`}>
-                        <Icon className="h-3 w-3" />
-                      </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-5 h-5 text-primary" />
                     </div>
-                  ) : (
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${getNotificationColor(notification.type)}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                  )}
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={`font-semibold ${notification.read ? "text-foreground" : "text-foreground"}`}>
-                        {notification.title}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-sm text-foreground truncate">
+                          {notification.title}
+                        </h3>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {timeAgo(notification.created_at)}
+                          </span>
+                          {unread && (
+                            <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                          )}
+                        </div>
+                      </div>
+                      <p className={`text-sm mt-1 ${isGatedMessage ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                        {isGatedMessage
+                          ? "Upgrade to Premium to read this message."
+                          : notification.message}
                       </p>
-                      {!notification.read && (
-                        <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2" />
-                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">{notification.message}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{notification.timestamp}</p>
                   </div>
                 </motion.button>
               )
             })}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-              <Bell className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="font-semibold text-foreground mb-1">No notifications</h3>
-            <p className="text-sm text-muted-foreground">
-              {"You're all caught up!"}
-            </p>
           </div>
         )}
       </div>
