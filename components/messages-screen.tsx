@@ -21,6 +21,7 @@ import { motion } from "framer-motion"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -141,17 +142,17 @@ function LockedChatModal({
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-sm rounded-3xl p-0 overflow-hidden">
-        <div className="p-6 text-center">
+        <DialogHeader className="p-6 text-center">
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Lock className="h-10 w-10 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Unlock Messaging</h2>
-          <p className="text-sm text-muted-foreground">
+          <DialogTitle className="text-2xl font-bold">Unlock Messaging</DialogTitle>
+          <DialogDescription className="text-sm">
             {canVerify
               ? "Verify the property in this match to start chatting, or upgrade to Premium to unlock all messages."
               : "Upgrade to Premium to start chatting and unlock unlimited messaging."}
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
         <div className="px-6 pb-2 space-y-3">
           {canVerify && (
             <div className="flex items-start gap-4 p-4 rounded-2xl bg-secondary/50">

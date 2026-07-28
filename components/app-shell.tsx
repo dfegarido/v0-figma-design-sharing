@@ -6,11 +6,12 @@ import { AuthProvider, useAuth } from "@/context/auth-context"
 import { AuthTransitionScreen } from "@/components/auth-transition-screen"
 import { LandingScreen } from "@/components/landing-screen"
 import { LoginScreen } from "@/components/login-screen"
+import { ResetPasswordScreen } from "@/components/reset-password-screen"
 import { SignupScreen } from "@/components/signup-screen"
 import { SwitchMyHouseApp } from "@/components/switch-my-house-app"
 import { UserDataProvider } from "@/context/user-data-context"
 
-type AuthScreen = "landing" | "login" | "signup"
+type AuthScreen = "landing" | "login" | "signup" | "reset-password"
 
 function AppContent() {
   const {
@@ -22,6 +23,7 @@ function AppContent() {
     cancelSignupTransition,
   } = useAuth()
   const [authScreen, setAuthScreen] = useState<AuthScreen>("landing")
+  const [resetPasswordEmail, setResetPasswordEmail] = useState("")
 
   if (status === "loading") {
     return (
@@ -60,7 +62,20 @@ function AppContent() {
     switch (authScreen) {
       case "login":
         return (
-          <LoginScreen onNavigateSignup={() => setAuthScreen("signup")} />
+          <LoginScreen
+            onNavigateSignup={() => setAuthScreen("signup")}
+            onNavigateForgotPassword={(email) => {
+              setResetPasswordEmail(email)
+              setAuthScreen("reset-password")
+            }}
+          />
+        )
+      case "reset-password":
+        return (
+          <ResetPasswordScreen
+            initialEmail={resetPasswordEmail}
+            onBack={() => setAuthScreen("login")}
+          />
         )
       case "signup":
         return (

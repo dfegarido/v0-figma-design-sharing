@@ -11,9 +11,10 @@ import { useAuth } from "@/context/auth-context"
 
 interface LoginScreenProps {
   onNavigateSignup: () => void
+  onNavigateForgotPassword: (email: string) => void
 }
 
-export function LoginScreen({ onNavigateSignup }: LoginScreenProps) {
+export function LoginScreen({ onNavigateSignup, onNavigateForgotPassword }: LoginScreenProps) {
   const { startLoginTransition, endLoginTransition, cancelLoginTransition } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -103,7 +104,7 @@ export function LoginScreen({ onNavigateSignup }: LoginScreenProps) {
         <button
           type="button"
           className="ml-auto block text-sm font-medium text-[#FF5A5F] hover:underline"
-          onClick={() => toast.message("Password reset flow is on the way.")}
+          onClick={() => onNavigateForgotPassword(email)}
         >
           Forgot Password?
         </button>

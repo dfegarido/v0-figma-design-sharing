@@ -24,6 +24,9 @@ function getSupabase(): SupabaseClient {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
+      // Implicit flow puts tokens in the URL hash so reset links work when
+      // opened from email (PKCE requires the same browser that requested reset).
+      flowType: "implicit",
     },
   })
 
